@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Local-first codebase intelligence workspace">
+    <title>CodePilot AI</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to workspace</a>
+    <header><div><p class="eyebrow">LOCAL-FIRST CODEBASE INTELLIGENCE</p><h1>CodePilot AI</h1></div><p id="connection" role="status">Checking service…</p></header>
+    <main id="main">
+      <section class="panel intro" aria-labelledby="intro-title"><h2 id="intro-title">Evidence, not guesses.</h2><p>Import a ZIP to create an immutable revision. Code is parsed as data only; it is never executed by this server.</p><p class="notice">Local development mode has no multi-user authentication, AI provider, or cloud deployment adapter. Do not expose it publicly.</p></section>
+      <section class="panel" aria-labelledby="project-title"><h2 id="project-title">Projects</h2><form id="project-form"><label for="project-name">New project name</label><div class="form-row"><input id="project-name" name="name" maxlength="100" required placeholder="e.g. Customer portal"><button type="submit">Create project</button></div></form><p id="project-feedback" class="feedback" role="status"></p><div id="projects" class="project-list" aria-live="polite"></div></section>
+      <section id="workspace" class="hidden" aria-live="polite">
+        <div class="workspace-header"><div><p class="eyebrow">SELECTED PROJECT</p><h2 id="selected-name">—</h2><p id="revision-status">No revision imported.</p></div><button id="refresh" type="button">Refresh analysis</button></div>
+        <section class="panel" aria-labelledby="import-title"><h3 id="import-title">Import a ZIP revision</h3><p>Limits: 10 MB archive, 25 MB extracted, 1,000 files, 2 MB per file. Archives with unsafe paths, symlinks, encrypted entries, or suspicious compression are rejected.</p><form id="import-form"><label for="archive">Repository ZIP</label><div class="form-row"><input id="archive" name="archive" type="file" accept="application/zip,.zip" required><button type="submit">Validate &amp; import</button></div></form><p id="import-feedback" class="feedback" role="status"></p></section>
+        <section id="overview" class="stats" aria-label="Analysis summary"></section>
+        <div class="grid">
+          <section class="panel"><h3>Architecture graph</h3><p class="muted">Static-import evidence only. Select a node to view source.</p><svg id="graph" viewBox="0 0 700 360" role="img" aria-label="Repository dependency graph"></svg></section>
+          <section class="panel"><h3>Findings</h3><div id="findings" class="findings"></div></section>
+        </div>
+        <div class="grid">
+          <section class="panel"><h3>Code explorer</h3><label for="file-search">Filter files</label><input id="file-search" type="search" placeholder="Filename"><div id="files" class="files"></div></section>
+          <section class="panel"><h3 id="source-title">Source preview</h3><pre id="source" tabindex="0">Select a source file to view inert, redacted text.</pre></section>
+        </div>
+        <div class="grid">
+          <section class="panel"><h3>Repository assistant</h3><form id="question-form"><label for="question">Ask about the current revision</label><textarea id="question" maxlength="2000" required placeholder="Where is authentication configured?"></textarea><button type="submit">Find source evidence</button></form><div id="answer" class="answer" aria-live="polite"></div></section>
+          <section class="panel"><h3>Deployment readiness</h3><div id="readiness" class="findings"></div></section>
+        </div>
+      </section>
+    </main>
+    <footer>CodePilot AI v0.1.0 · Imported content is untrusted data · <a href="/api/health">health</a></footer>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
