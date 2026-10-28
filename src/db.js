@@ -223,6 +223,56 @@ const SCHEMA_DDL = `
     created_at TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS diagrams (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    revision_id TEXT REFERENCES revisions(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    diagram_type TEXT NOT NULL,
+    graph_data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'todo',
+    priority TEXT NOT NULL DEFAULT 'medium',
+    due_date TEXT,
+    target_file TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'general',
+    tags TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS api_requests (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    method TEXT NOT NULL DEFAULT 'GET',
+    url TEXT NOT NULL,
+    headers TEXT,
+    body TEXT,
+    collection_name TEXT NOT NULL DEFAULT 'Default',
+    last_status INTEGER,
+    last_response TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_files_revision_path ON files(revision_id, path);
   CREATE INDEX IF NOT EXISTS idx_symbols_revision_name ON symbols(revision_id, name);
   CREATE INDEX IF NOT EXISTS idx_edges_revision ON edges(revision_id);
@@ -230,6 +280,10 @@ const SCHEMA_DDL = `
   CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+  CREATE INDEX IF NOT EXISTS idx_diagrams_project ON diagrams(project_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, status);
+  CREATE INDEX IF NOT EXISTS idx_notes_project ON notes(project_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_api_requests_project ON api_requests(project_id);
 `;
 
 class Store {
@@ -734,6 +788,305 @@ class Store {
 
   async getDeployment(depId) {
     return await this.get('SELECT * FROM deployments WHERE id = ?', depId);
+  }
+
+  // --- Diagrams & Flow Persistence ---
+  async saveDiagram(projectId, revisionId, title, diagramType, graphData) {
+    const diagId = id('diagram');
+    const timestamp = now();
+    const dataStr = typeof graphData === 'string' ? graphData : JSON.stringify(graphData);
+    await this.run(
+      'INSERT INTO diagrams VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      diagId,
+      projectId,
+      revisionId || null,
+      title,
+      diagramType,
+      dataStr,
+      timestamp,
+      timestamp
+    );
+    await this.audit('diagram.saved', projectId, `Saved diagram: ${title} (${diagramType})`);
+    return await this.get('SELECT * FROM diagrams WHERE id = ?', diagId);
+  }
+
+  async listDiagrams(projectId) {
+    return await this.all('SELECT id, project_id, revision_id, title, diagram_type, created_at, updated_at FROM diagrams WHERE project_id = ? ORDER BY updated_at DESC', projectId);
+  }
+
+  async getDiagram(diagramId) {
+    return await this.get('SELECT * FROM diagrams WHERE id = ?', diagramId);
+  }
+
+  async deleteDiagram(diagramId) {
+    const d = await this.getDiagram(diagramId);
+    if (!d) return false;
+    await this.run('DELETE FROM diagrams WHERE id = ?', diagramId);
+    return true;
+  }
+
+  // --- Tasks & Kanban ---
+  async createTask(projectId, title, description = '', priority = 'medium', targetFile = null, dueDate = null) {
+    const taskId = id('task');
+    const timestamp = now();
+    await this.run(
+      'INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      taskId,
+      projectId,
+      title,
+      description,
+      'todo',
+      priority,
+      dueDate,
+      targetFile,
+      timestamp,
+      timestamp
+    );
+    await this.audit('task.created', projectId, `Created task: ${title}`);
+    return await this.get('SELECT * FROM tasks WHERE id = ?', taskId);
+  }
+
+  async listTasks(projectId, status = null) {
+    if (status) {
+      return await this.all('SELECT * FROM tasks WHERE project_id = ? AND status = ? ORDER BY created_at DESC', projectId, status);
+    }
+    return await this.all('SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC', projectId);
+  }
+
+  async getTask(taskId) {
+    return await this.get('SELECT * FROM tasks WHERE id = ?', taskId);
+  }
+
+  async updateTask(taskId, updates) {
+    const task = await this.getTask(taskId);
+    if (!task) return null;
+    const updatedAt = now();
+    const fields = [];
+    const values = [];
+
+    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+    if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+    if (updates.priority !== undefined) { fields.push('priority = ?'); values.push(updates.priority); }
+    if (updates.targetFile !== undefined) { fields.push('target_file = ?'); values.push(updates.targetFile); }
+    if (updates.dueDate !== undefined) { fields.push('due_date = ?'); values.push(updates.dueDate); }
+
+    fields.push('updated_at = ?');
+    values.push(updatedAt);
+    values.push(taskId);
+
+    await this.run(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, ...values);
+    return await this.getTask(taskId);
+  }
+
+  async deleteTask(taskId) {
+    const task = await this.getTask(taskId);
+    if (!task) return false;
+    await this.run('DELETE FROM tasks WHERE id = ?', taskId);
+    return true;
+  }
+
+  // --- Notes & Knowledge Base ---
+  async createNote(projectId, title, content, category = 'general', tags = '') {
+    const noteId = id('note');
+    const timestamp = now();
+    await this.run(
+      'INSERT INTO notes VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      noteId,
+      projectId,
+      title,
+      content,
+      category,
+      tags,
+      timestamp,
+      timestamp
+    );
+    return await this.get('SELECT * FROM notes WHERE id = ?', noteId);
+  }
+
+  async listNotes(projectId, category = null) {
+    if (category) {
+      return await this.all('SELECT * FROM notes WHERE project_id = ? AND category = ? ORDER BY updated_at DESC', projectId, category);
+    }
+    return await this.all('SELECT * FROM notes WHERE project_id = ? ORDER BY updated_at DESC', projectId);
+  }
+
+  async getNote(noteId) {
+    return await this.get('SELECT * FROM notes WHERE id = ?', noteId);
+  }
+
+  async updateNote(noteId, updates) {
+    const note = await this.getNote(noteId);
+    if (!note) return null;
+    const updatedAt = now();
+    const fields = [];
+    const values = [];
+
+    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+    if (updates.content !== undefined) { fields.push('content = ?'); values.push(updates.content); }
+    if (updates.category !== undefined) { fields.push('category = ?'); values.push(updates.category); }
+    if (updates.tags !== undefined) { fields.push('tags = ?'); values.push(updates.tags); }
+
+    fields.push('updated_at = ?');
+    values.push(updatedAt);
+    values.push(noteId);
+
+    await this.run(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`, ...values);
+    return await this.getNote(noteId);
+  }
+
+  async deleteNote(noteId) {
+    const note = await this.getNote(noteId);
+    if (!note) return false;
+    await this.run('DELETE FROM notes WHERE id = ?', noteId);
+    return true;
+  }
+
+  // --- API Studio Requests ---
+  async saveApiRequest(projectId, name, method, url, headers = '{}', body = '', collectionName = 'Default') {
+    const reqId = id('apireq');
+    const timestamp = now();
+    await this.run(
+      'INSERT INTO api_requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      reqId,
+      projectId,
+      name,
+      method.toUpperCase(),
+      url,
+      typeof headers === 'string' ? headers : JSON.stringify(headers),
+      body || '',
+      collectionName,
+      null,
+      null,
+      timestamp,
+      timestamp
+    );
+    return await this.get('SELECT * FROM api_requests WHERE id = ?', reqId);
+  }
+
+  async listApiRequests(projectId) {
+    return await this.all('SELECT * FROM api_requests WHERE project_id = ? ORDER BY collection_name ASC, created_at DESC', projectId);
+  }
+
+  async getApiRequest(reqId) {
+    return await this.get('SELECT * FROM api_requests WHERE id = ?', reqId);
+  }
+
+  async updateApiRequestResult(reqId, status, response) {
+    await this.run(
+      'UPDATE api_requests SET last_status = ?, last_response = ?, updated_at = ? WHERE id = ?',
+      status,
+      typeof response === 'string' ? response.slice(0, 10000) : JSON.stringify(response).slice(0, 10000),
+      now(),
+      reqId
+    );
+  }
+
+  async deleteApiRequest(reqId) {
+    const r = await this.getApiRequest(reqId);
+    if (!r) return false;
+    await this.run('DELETE FROM api_requests WHERE id = ?', reqId);
+    return true;
+  }
+
+  // --- Conversations & Messages ---
+  async createConversation(projectId, title) {
+    const convoId = id('convo');
+    await this.run('INSERT INTO conversations VALUES (?, ?, ?, ?)', convoId, projectId, title, now());
+    return await this.get('SELECT * FROM conversations WHERE id = ?', convoId);
+  }
+
+  async listConversations(projectId) {
+    return await this.all('SELECT * FROM conversations WHERE project_id = ? ORDER BY created_at DESC', projectId);
+  }
+
+  async getConversation(convoId) {
+    return await this.get('SELECT * FROM conversations WHERE id = ?', convoId);
+  }
+
+  async deleteConversation(convoId) {
+    const c = await this.getConversation(convoId);
+    if (!c) return false;
+    await this.run('DELETE FROM conversations WHERE id = ?', convoId);
+    return true;
+  }
+
+  async addMessage(convoId, projectId, revisionId, role, content, citations = []) {
+    const msgId = id('msg');
+    const citStr = typeof citations === 'string' ? citations : JSON.stringify(citations);
+    await this.run(
+      'INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      msgId,
+      convoId,
+      projectId,
+      revisionId || null,
+      role,
+      content,
+      citStr,
+      now()
+    );
+    return await this.get('SELECT * FROM messages WHERE id = ?', msgId);
+  }
+
+  async listMessages(convoId) {
+    return await this.all('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC', convoId);
+  }
+
+  // --- Global Cross-App Search ---
+  async globalSearch(projectId, query) {
+    const q = `%${(query || '').toLowerCase().trim()}%`;
+    const rev = await this.latestRevision(projectId);
+    const revId = rev ? rev.id : null;
+
+    const results = {
+      files: [],
+      symbols: [],
+      findings: [],
+      tasks: [],
+      notes: [],
+      diagrams: []
+    };
+
+    if (revId) {
+      results.files = await this.all(
+        'SELECT path, language, bytes FROM files WHERE revision_id = ? AND LOWER(path) LIKE ? LIMIT 10',
+        revId,
+        q
+      );
+      results.symbols = await this.all(
+        'SELECT file_path, name, kind, line FROM symbols WHERE revision_id = ? AND LOWER(name) LIKE ? LIMIT 10',
+        revId,
+        q
+      );
+      results.findings = await this.all(
+        'SELECT severity, category, message, file_path, line FROM findings WHERE revision_id = ? AND (LOWER(message) LIKE ? OR LOWER(file_path) LIKE ?) LIMIT 10',
+        revId,
+        q,
+        q
+      );
+    }
+
+    results.tasks = await this.all(
+      'SELECT id, title, status, priority FROM tasks WHERE project_id = ? AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?) LIMIT 10',
+      projectId,
+      q,
+      q
+    );
+
+    results.notes = await this.all(
+      'SELECT id, title, category FROM notes WHERE project_id = ? AND (LOWER(title) LIKE ? OR LOWER(content) LIKE ?) LIMIT 10',
+      projectId,
+      q,
+      q
+    );
+
+    results.diagrams = await this.all(
+      'SELECT id, title, diagram_type FROM diagrams WHERE project_id = ? AND LOWER(title) LIKE ? LIMIT 10',
+      projectId,
+      q
+    );
+
+    return results;
   }
 }
 

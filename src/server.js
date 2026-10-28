@@ -8,7 +8,15 @@ const { ArchiveError, readZip, contentHash } = require('./archive');
 const { analyze } = require('./analyzer');
 const { validateUrlForSSRF, fetchRemoteZip, SSRFError } = require('./importer');
 const { generateArchitectureReport, exportReportToMarkdown } = require('./architecture');
-const { answerQuestionWithContext } = require('./ai');
+const {
+  answerQuestionWithContext,
+  chatWithContext,
+  explainCode,
+  generateTestsForCode,
+  refactorCode,
+  explainDiagram
+} = require('./ai');
+const { generateFlowDiagram } = require('./flow');
 const { generatePlanFromRequirement, createUnifiedDiff } = require('./planner');
 const { detectStack, generateDockerfile, generateDockerignore, generateDockerCompose } = require('./docker');
 const { evaluateReadiness, executeDeployment } = require('./deployer');
@@ -459,6 +467,407 @@ function createApp(options = {}) {
         return json(response, 200, { revisionId: context.revision.id, ...result, requestId });
       }
 
+      // --- CodePilot Flow Visual Intelligence Endpoints ---
+      const flowMatch = pathname.match(/^\/api\/projects\/([^/]+)\/flow$/);
+      if (request.method === 'GET' && flowMatch) {
+        const context = await latestOrError(store, flowMatch[1], response);
+        if (!context) return;
+        const diagramType = url.searchParams.get('type') || 'architecture';
+        const symbol = url.searchParams.get('symbol') || null;
+        const file = url.searchParams.get('file') || null;
+        const route = url.searchParams.get('route') || null;
+
+        const diagram = await generateFlowDiagram(store, context.project.id, context.revision.id, {
+          type: diagramType,
+          symbol,
+          file,
+          route
+        });
+        return json(response, 200, { diagram, requestId });
+      }
+
+      const flowExplainMatch = pathname.match(/^\/api\/projects\/([^/]+)\/flow\/explain$/);
+      if (request.method === 'POST' && flowExplainMatch) {
+        const context = await latestOrError(store, flowExplainMatch[1], response);
+        if (!context) return;
+        const body = parseJson(await readBody(request, 64 * 1024));
+        const explanation = await explainDiagram(body.diagram || {}, body.query || '', config.ai);
+        return json(response, 200, { explanation, requestId });
+      }
+
+      const diagramsMatch = pathname.match(/^\/api\/projects\/([^/]+)\/diagrams$/);
+      if (request.method === 'GET' && diagramsMatch) {
+        const diagrams = await store.listDiagrams(diagramsMatch[1]);
+        return json(response, 200, { diagrams, requestId });
+      }
+
+      if (request.method === 'POST' && diagramsMatch) {
+        const context = await latestOrError(store, diagramsMatch[1], response);
+        if (!context) return;
+        const body = parseJson(await readBody(request, 128 * 1024));
+        const { title, diagramType, graphData } = body;
+        if (!title || !diagramType || !graphData) {
+          return error(response, 422, 'FIELDS_REQUIRED', 'title, diagramType, and graphData are required.');
+        }
+        const saved = await store.saveDiagram(context.project.id, context.revision.id, title, diagramType, graphData);
+        return json(response, 201, { diagram: saved, requestId });
+      }
+
+      const diagramItemMatch = pathname.match(/^\/api\/projects\/([^/]+)\/diagrams\/([^/]+)$/);
+      if (request.method === 'GET' && diagramItemMatch) {
+        const diagram = await store.getDiagram(diagramItemMatch[2]);
+        if (!diagram) return error(response, 404, 'NOT_FOUND', 'Diagram not found.');
+        return json(response, 200, { diagram, requestId });
+      }
+
+      if (request.method === 'DELETE' && diagramItemMatch) {
+        const deleted = await store.deleteDiagram(diagramItemMatch[2]);
+        if (!deleted) return error(response, 404, 'NOT_FOUND', 'Diagram not found.');
+        return json(response, 200, { success: true, requestId });
+      }
+
+      // --- Multi-Turn AI Conversations & Code Actions ---
+      const aiChatMatch = pathname.match(/^\/api\/projects\/([^/]+)\/ai\/chat$/);
+      if (request.method === 'POST' && aiChatMatch) {
+        const projectId = aiChatMatch[1];
+        const project = await store.project(projectId);
+        if (!project) return noProject(response);
+        const revision = await store.latestRevision(projectId);
+        const body = parseJson(await readBody(request, 64 * 1024));
+        const messages = body.messages || [];
+        let convoId = body.conversationId;
+
+        if (!convoId) {
+          const firstUserMsg = messages.find((m) => m.role === 'user');
+          const title = firstUserMsg ? firstUserMsg.content.slice(0, 30) : 'New Conversation';
+          const newConvo = await store.createConversation(projectId, title);
+          convoId = newConvo.id;
+        }
+
+        const latestMsg = messages[messages.length - 1];
+        if (latestMsg && latestMsg.role === 'user') {
+          await store.addMessage(convoId, projectId, revision?.id, 'user', latestMsg.content);
+        }
+
+        const result = await chatWithContext(store, project, revision, messages, config.ai);
+        await store.addMessage(convoId, projectId, revision?.id, 'assistant', result.reply, result.citations);
+
+        return json(response, 200, {
+          conversationId: convoId,
+          reply: result.reply,
+          citations: result.citations,
+          requestId
+        });
+      }
+
+      const convosMatch = pathname.match(/^\/api\/projects\/([^/]+)\/conversations$/);
+      if (request.method === 'GET' && convosMatch) {
+        const conversations = await store.listConversations(convosMatch[1]);
+        return json(response, 200, { conversations, requestId });
+      }
+
+      if (request.method === 'POST' && convosMatch) {
+        const body = parseJson(await readBody(request, 8 * 1024));
+        const title = (body.title || 'New Conversation').trim();
+        const convo = await store.createConversation(convosMatch[1], title);
+        return json(response, 201, { conversation: convo, requestId });
+      }
+
+      const convoItemMatch = pathname.match(/^\/api\/projects\/([^/]+)\/conversations\/([^/]+)$/);
+      if (request.method === 'GET' && convoItemMatch) {
+        const conversation = await store.getConversation(convoItemMatch[2]);
+        if (!conversation) return error(response, 404, 'NOT_FOUND', 'Conversation not found.');
+        const messages = await store.listMessages(convoItemMatch[2]);
+        return json(response, 200, { conversation, messages, requestId });
+      }
+
+      if (request.method === 'DELETE' && convoItemMatch) {
+        const deleted = await store.deleteConversation(convoItemMatch[2]);
+        return json(response, 200, { success: Boolean(deleted), requestId });
+      }
+
+      // Code AI actions (explain, generate tests, refactor)
+      const aiExplainMatch = pathname.match(/^\/api\/projects\/([^/]+)\/ai\/explain$/);
+      if (request.method === 'POST' && aiExplainMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const explanation = await explainCode(body.code || '', body.filePath || 'code', config.ai);
+        return json(response, 200, { explanation, requestId });
+      }
+
+      const aiTestMatch = pathname.match(/^\/api\/projects\/([^/]+)\/ai\/generate-tests$/);
+      if (request.method === 'POST' && aiTestMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const testCode = await generateTestsForCode(body.code || '', body.filePath || 'code', config.ai);
+        return json(response, 200, { testCode, requestId });
+      }
+
+      const aiRefactorMatch = pathname.match(/^\/api\/projects\/([^/]+)\/ai\/refactor$/);
+      if (request.method === 'POST' && aiRefactorMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const originalCode = body.code || '';
+        const goal = body.goal || body.instruction || 'Improve code readability and safety';
+        const refactoredCode = await refactorCode(originalCode, goal, config.ai);
+        const { createUnifiedDiff } = require('./planner');
+        const diff = createUnifiedDiff(body.filePath || 'code', originalCode, refactoredCode);
+        return json(response, 200, { refactoredCode, diff, requestId });
+      }
+
+      // --- Productivity: Tasks & Kanban Endpoints ---
+      const projectTasksMatch = pathname.match(/^\/api\/projects\/([^/]+)\/tasks$/);
+      if (request.method === 'GET' && projectTasksMatch) {
+        const status = url.searchParams.get('status') || null;
+        const tasks = await store.listTasks(projectTasksMatch[1], status);
+        return json(response, 200, { tasks, requestId });
+      }
+
+      if (request.method === 'POST' && projectTasksMatch) {
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const { title, description, priority, targetFile, dueDate } = body;
+        if (!title) return error(response, 422, 'TITLE_REQUIRED', 'Task title is required.');
+        const task = await store.createTask(projectTasksMatch[1], title, description, priority, targetFile, dueDate);
+        return json(response, 201, { task, requestId });
+      }
+
+      const taskItemMatch = pathname.match(/^\/api\/projects\/([^/]+)\/tasks\/([^/]+)$/);
+      if (request.method === 'GET' && taskItemMatch) {
+        let task = await store.getTask(taskItemMatch[2]);
+        if (!task) {
+          task = await store.get('SELECT * FROM plan_tasks WHERE id = ?', taskItemMatch[2]);
+        }
+        if (!task) return error(response, 404, 'NOT_FOUND', 'Task not found.');
+        return json(response, 200, { task, requestId });
+      }
+
+      if (request.method === 'PATCH' && taskItemMatch) {
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const kanbanTask = await store.getTask(taskItemMatch[2]);
+        if (kanbanTask) {
+          const updated = await store.updateTask(taskItemMatch[2], body);
+          return json(response, 200, { task: updated, requestId });
+        }
+        const planTask = await store.get('SELECT * FROM plan_tasks WHERE id = ?', taskItemMatch[2]);
+        if (planTask) {
+          const status = body?.status;
+          if (!['pending', 'in_progress', 'completed', 'blocked'].includes(status)) {
+            return error(response, 422, 'INVALID_STATUS', 'Status must be pending, in_progress, completed, or blocked.');
+          }
+          const updated = await store.updateTaskStatus(taskItemMatch[2], status);
+          return json(response, 200, { task: updated, requestId });
+        }
+        return error(response, 404, 'NOT_FOUND', 'Task not found.');
+      }
+
+      if (request.method === 'DELETE' && taskItemMatch) {
+        const deleted = await store.deleteTask(taskItemMatch[2]);
+        return json(response, 200, { success: Boolean(deleted), requestId });
+      }
+
+      const taskGenMatch = pathname.match(/^\/api\/projects\/([^/]+)\/tasks\/generate$/);
+      if (request.method === 'POST' && taskGenMatch) {
+        const projectId = taskGenMatch[1];
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const reqText = (body.requirement || 'Enhance test coverage and resolve security findings').trim();
+        const findings = await store.all(
+          'SELECT f.message, f.file_path FROM findings f JOIN revisions r ON f.revision_id = r.id WHERE r.project_id = ? LIMIT 5',
+          projectId
+        );
+        
+        const tasksCreated = [];
+        tasksCreated.push(await store.createTask(projectId, `Review requirement: ${reqText.slice(0, 40)}`, reqText, 'high'));
+        for (const f of findings) {
+          tasksCreated.push(await store.createTask(projectId, `Fix: ${f.message.slice(0, 50)}`, `Investigate in ${f.file_path}`, 'medium', f.file_path));
+        }
+        return json(response, 201, { tasks: tasksCreated, requestId });
+      }
+
+      // --- Notes & Knowledge Base Endpoints ---
+      const notesMatch = pathname.match(/^\/api\/projects\/([^/]+)\/notes$/);
+      if (request.method === 'GET' && notesMatch) {
+        const category = url.searchParams.get('category') || null;
+        const notes = await store.listNotes(notesMatch[1], category);
+        return json(response, 200, { notes, requestId });
+      }
+
+      if (request.method === 'POST' && notesMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const { title, content, category, tags } = body;
+        if (!title || !content) return error(response, 422, 'FIELDS_REQUIRED', 'title and content are required.');
+        const note = await store.createNote(notesMatch[1], title, content, category, tags);
+        return json(response, 201, { note, requestId });
+      }
+
+      const noteItemMatch = pathname.match(/^\/api\/projects\/([^/]+)\/notes\/([^/]+)$/);
+      if (request.method === 'GET' && noteItemMatch) {
+        const note = await store.getNote(noteItemMatch[2]);
+        if (!note) return error(response, 404, 'NOT_FOUND', 'Note not found.');
+        return json(response, 200, { note, requestId });
+      }
+
+      if (request.method === 'PATCH' && noteItemMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const updated = await store.updateNote(noteItemMatch[2], body);
+        if (!updated) return error(response, 404, 'NOT_FOUND', 'Note not found.');
+        return json(response, 200, { note: updated, requestId });
+      }
+
+      if (request.method === 'DELETE' && noteItemMatch) {
+        const deleted = await store.deleteNote(noteItemMatch[2]);
+        return json(response, 200, { success: Boolean(deleted), requestId });
+      }
+
+      // --- API Studio Endpoints ---
+      const apiReqMatch = pathname.match(/^\/api\/projects\/([^/]+)\/api-requests$/);
+      if (request.method === 'GET' && apiReqMatch) {
+        const requests = await store.listApiRequests(apiReqMatch[1]);
+        return json(response, 200, { requests, requestId });
+      }
+
+      if (request.method === 'POST' && apiReqMatch) {
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const { name, method, url: targetUrl, headers, body: reqBody, collectionName } = body;
+        if (!name || !targetUrl) return error(response, 422, 'FIELDS_REQUIRED', 'name and url are required.');
+        const saved = await store.saveApiRequest(apiReqMatch[1], name, method || 'GET', targetUrl, headers, reqBody, collectionName);
+        return json(response, 201, { request: saved, requestId });
+      }
+
+      const apiReqItemMatch = pathname.match(/^\/api\/projects\/([^/]+)\/api-requests\/([^/]+)$/);
+      if (request.method === 'DELETE' && apiReqItemMatch) {
+        const deleted = await store.deleteApiRequest(apiReqItemMatch[2]);
+        return json(response, 200, { success: Boolean(deleted), requestId });
+      }
+
+      const apiExecMatch = pathname.match(/^\/api\/projects\/([^/]+)\/api-requests\/execute$/);
+      if (request.method === 'POST' && apiExecMatch) {
+        const body = parseJson(await readBody(request, 32 * 1024));
+        const targetUrl = (body.url || '').trim();
+        const method = (body.method || 'GET').toUpperCase();
+        if (!targetUrl) return error(response, 422, 'URL_REQUIRED', 'A target URL is required.');
+
+        // Validate URL against SSRF
+        try {
+          await validateUrlForSSRF(targetUrl);
+        } catch (ssrfErr) {
+          return error(response, 400, 'SSRF_BLOCKED', ssrfErr.message);
+        }
+
+        const parsedUrl = new URL(targetUrl);
+        const client = parsedUrl.protocol === 'https:' ? https : http;
+        const startTime = Date.now();
+
+        try {
+          const execRes = await new Promise((resolve, reject) => {
+            const req = client.request(
+              parsedUrl,
+              {
+                method,
+                headers: body.headers || {},
+                timeout: 10000
+              },
+              (res) => {
+                const chunks = [];
+                res.on('data', (c) => chunks.push(c));
+                res.on('end', () => {
+                  resolve({
+                    status: res.statusCode,
+                    statusText: res.statusMessage,
+                    headers: res.headers,
+                    body: Buffer.concat(chunks).toString('utf8'),
+                    durationMs: Date.now() - startTime
+                  });
+                });
+                res.on('error', reject);
+              }
+            );
+            req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out (10s limit).')); });
+            req.on('error', reject);
+            if (body.body) req.write(typeof body.body === 'string' ? body.body : JSON.stringify(body.body));
+            req.end();
+          });
+
+          return json(response, 200, { result: execRes, requestId });
+        } catch (execErr) {
+          return json(response, 200, {
+            result: {
+              status: 0,
+              statusText: 'Network Error',
+              headers: {},
+              body: execErr.message,
+              durationMs: Date.now() - startTime
+            },
+            requestId
+          });
+        }
+      }
+
+      // --- Database Studio Endpoints ---
+      const dbSchemaMatch = pathname.match(/^\/api\/projects\/([^/]+)\/db-schema$/);
+      if (request.method === 'GET' && dbSchemaMatch) {
+        let tables = [];
+        if (store.dialect === 'postgres') {
+          const res = await store.all(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"
+          );
+          tables = res.map((r) => ({ name: r.table_name }));
+        } else {
+          const res = await store.all(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+          );
+          tables = res.map((r) => ({ name: r.name }));
+        }
+        return json(response, 200, { dialect: store.dialect, tables, requestId });
+      }
+
+      const dbQueryMatch = pathname.match(/^\/api\/projects\/([^/]+)\/db-query$/);
+      if (request.method === 'POST' && dbQueryMatch) {
+        const body = parseJson(await readBody(request, 8 * 1024));
+        const rawSql = (body.query || body.sql || '').trim();
+        if (!rawSql) return error(response, 422, 'SQL_REQUIRED', 'SQL query statement is required.');
+
+        // Restrict execution to safe queries (SELECT, EXPLAIN, PRAGMA)
+        const isSafe = /^(SELECT|EXPLAIN|PRAGMA|SHOW)\b/i.test(rawSql);
+        if (!isSafe) {
+          return error(response, 400, 'READ_ONLY_QUERY_REQUIRED', 'Only read/audit queries (SELECT, EXPLAIN, PRAGMA) are permitted via Studio.');
+        }
+
+        const startT = Date.now();
+        try {
+          const rows = await store.all(rawSql);
+          const executionTimeMs = Date.now() - startT;
+          const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+          return json(response, 200, { rows: rows.slice(0, 100), columns, rowCount: rows.length, executionTimeMs, requestId });
+        } catch (dbErr) {
+          return error(response, 400, 'QUERY_FAILED', dbErr.message);
+        }
+      }
+
+      // --- Global Cross-App Search Endpoint ---
+      const searchMatch = pathname.match(/^\/api\/projects\/([^/]+)\/search$/);
+      if (request.method === 'GET' && searchMatch) {
+        const query = url.searchParams.get('q') || '';
+        const grouped = await store.globalSearch(searchMatch[1], query);
+        // Flatten into a unified results array for the Command Palette
+        const results = [
+          ...grouped.files.map(f => ({ type: 'file', name: f.path, language: f.language, bytes: f.bytes })),
+          ...grouped.symbols.map(s => ({ type: 'symbol', name: s.name, kind: s.kind, file: s.file_path, line: s.line })),
+          ...grouped.findings.map(f => ({ type: 'finding', name: f.message, severity: f.severity, file: f.file_path, line: f.line })),
+          ...grouped.tasks.map(t => ({ type: 'task', name: t.title, id: t.id, status: t.status, priority: t.priority })),
+          ...grouped.notes.map(n => ({ type: 'note', name: n.title, id: n.id, category: n.category })),
+          ...grouped.diagrams.map(d => ({ type: 'diagram', name: d.title, id: d.id, diagramType: d.diagram_type }))
+        ];
+        return json(response, 200, { results, grouped, requestId });
+      }
+
+      // --- AI Settings Configuration ---
+      if (request.method === 'GET' && pathname === '/api/settings/ai') {
+        return json(response, 200, {
+          provider: config.ai.provider,
+          model: config.ai.model,
+          hasApiKey: Boolean(config.ai.apiKey),
+          availableProviders: ['local', 'openai', 'anthropic', 'gemini'],
+          requestId
+        });
+      }
+
       // --- Implementation Planner Endpoints ---
       const plansMatch = pathname.match(/^\/api\/projects\/([^/]+)\/plans$/);
       if (request.method === 'GET' && plansMatch) {
@@ -478,17 +887,6 @@ function createApp(options = {}) {
         return json(response, 201, { plan, requestId });
       }
 
-      const taskMatch = pathname.match(/^\/api\/projects\/([^/]+)\/tasks\/([^/]+)$/);
-      if (request.method === 'PATCH' && taskMatch) {
-        const taskId = taskMatch[2];
-        const body = parseJson(await readBody(request, 8 * 1024));
-        const status = body.status;
-        if (!['pending', 'in_progress', 'completed', 'blocked'].includes(status)) {
-          return error(response, 422, 'INVALID_STATUS', 'Status must be pending, in_progress, completed, or blocked.');
-        }
-        const updated = await store.updateTaskStatus(taskId, status);
-        return json(response, 200, { task: updated, requestId });
-      }
 
       // --- Patches & Code Modifications ---
       const patchesMatch = pathname.match(/^\/api\/projects\/([^/]+)\/patches$/);
