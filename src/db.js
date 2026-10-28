@@ -261,7 +261,14 @@ class Store {
       this.initPostgresSchema();
     } else {
       this.dialect = 'sqlite';
-      const { DatabaseSync } = require('node:sqlite');
+      let DatabaseSync;
+      try {
+        DatabaseSync = require('node:sqlite').DatabaseSync;
+      } catch (err) {
+        throw new Error(
+          'SQLite requires Node.js >= 22.5.0 (with node:sqlite) or a PostgreSQL connection string via DATABASE_URL.'
+        );
+      }
       fs.mkdirSync(this.dataDir, { recursive: true });
       this.sqlite = new DatabaseSync(path.join(this.dataDir, 'codepilot.db'));
       this.sqlite.exec('PRAGMA foreign_keys = ON;');

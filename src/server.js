@@ -111,8 +111,47 @@ function createApp(options = {}) {
   const handleRequest = async (request, response) => {
     const requestId = crypto.randomUUID();
     try {
-      const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
-      const pathname = url.pathname;
+      const host = request.headers['x-forwarded-host'] || request.headers.host || 'localhost';
+      const proto = request.headers['x-forwarded-proto'] || 'http';
+      const url = new URL(request.url, `${proto}://${host}`);
+
+      // Resolve effective pathname across Vercel rewrites, proxy headers, and direct calls
+      let rawPath = url.pathname;
+      if (url.searchParams.has('__path')) {
+        rawPath = url.searchParams.get('__path');
+      } else if (request.headers['x-matched-path']) {
+        const h = request.headers['x-matched-path'];
+        if (h && h !== '/api/index.js' && h !== '/api/index') rawPath = h;
+      } else if (request.headers['x-forwarded-uri']) {
+        const h = request.headers['x-forwarded-uri'];
+        if (h && h !== '/api/index.js' && h !== '/api/index') rawPath = h;
+      } else if (request.headers['x-original-url']) {
+        const h = request.headers['x-original-url'];
+        if (h && h !== '/api/index.js' && h !== '/api/index') rawPath = h;
+      }
+
+      // Merge extra query parameters if present in rawPath
+      if (rawPath.includes('?')) {
+        const extraSearch = new URLSearchParams(rawPath.slice(rawPath.indexOf('?') + 1));
+        for (const [key, val] of extraSearch.entries()) {
+          if (!url.searchParams.has(key)) {
+            url.searchParams.set(key, val);
+          }
+        }
+      }
+
+      // Strip query parameters if present in rawPath
+      let pathname = rawPath.split('?')[0];
+
+      // Normalize trailing slash (except root '/')
+      if (pathname.length > 1 && pathname.endsWith('/')) {
+        pathname = pathname.slice(0, -1);
+      }
+
+      // If mapped directly to /api/index.js or /api/index, treat as /api/health
+      if (pathname === '/api/index.js' || pathname === '/api/index') {
+        pathname = '/api/health';
+      }
 
       // Extract bearer token or session cookie
       const authHeader = request.headers['authorization'] || '';
@@ -120,7 +159,7 @@ function createApp(options = {}) {
       const currentUser = token ? await store.getSessionUser(token) : null;
 
       // --- Health & Readiness Endpoints ---
-      if (request.method === 'GET' && pathname === '/api/health') {
+      if (request.method === 'GET' && (pathname === '/api/health' || pathname === '/api')) {
         return json(response, 200, {
           status: 'ok',
           requestId,
