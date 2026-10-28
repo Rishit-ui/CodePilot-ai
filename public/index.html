@@ -201,20 +201,34 @@
             <!-- Repository Ingestion Card -->
             <div class="panel">
               <h3 class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
-              <p class="panel-desc">Import codebase as immutable data. Zip Slip, symlinks, and zip bombs are strictly validated and blocked. Untrusted code is never executed by the API server.</p>
+              <p class="panel-desc">Import codebase as immutable data. Directly import via public GitHub repository link or upload a ZIP archive. Zip Slip, symlinks, and SSRF attacks are strictly blocked.</p>
               <div class="import-tabs">
-                <button type="button" id="tab-btn-zip" class="tab-btn active" onclick="switchImportTab('zip')">Upload ZIP Archive</button>
-                <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">Remote URL (SSRF Protected)</button>
+                <button type="button" id="tab-btn-github" class="tab-btn active" onclick="switchImportTab('github')">🔗 GitHub Repository Link</button>
+                <button type="button" id="tab-btn-zip" class="tab-btn" onclick="switchImportTab('zip')">📁 Upload ZIP Archive</button>
+                <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">🌐 Direct ZIP URL</button>
               </div>
-              <form id="zip-import-form" class="import-form">
+
+              <!-- GitHub Repo Direct Link Form -->
+              <form id="github-import-form" class="import-form">
+                <div class="form-row">
+                  <input id="github-repo-input" type="text" placeholder="https://github.com/owner/repository (e.g. https://github.com/expressjs/express)" required aria-label="GitHub Repository Link">
+                  <button type="submit" class="btn btn-primary">Fetch &amp; Ingest GitHub Repo</button>
+                </div>
+                <small class="muted" style="display:block; margin-top:0.4rem;">Supports full GitHub URLs (e.g. <code>https://github.com/owner/repo</code>, branches <code>/tree/dev</code>, or shorthand <code>owner/repo</code>). Automatically resolves default branch (main/master).</small>
+              </form>
+
+              <!-- ZIP File Upload Form -->
+              <form id="zip-import-form" class="import-form hidden">
                 <div class="form-row">
                   <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive">
                   <button type="submit" class="btn btn-primary">Validate &amp; Ingest ZIP</button>
                 </div>
               </form>
+
+              <!-- Direct URL Form -->
               <form id="url-import-form" class="import-form hidden">
                 <div class="form-row">
-                  <input id="remote-url-input" type="url" placeholder="https://github.com/org/repo/archive/refs/heads/main.zip" aria-label="Remote archive URL">
+                  <input id="remote-url-input" type="url" placeholder="https://example.com/archive.zip" aria-label="Remote archive URL">
                   <button type="submit" class="btn btn-primary">Fetch &amp; Ingest (SSRF-Safe)</button>
                 </div>
               </form>
@@ -764,11 +778,13 @@
         <form id="project-create-modal-form">
           <label for="modal-project-name" class="form-label">Project Name</label>
           <input id="modal-project-name" type="text" required maxlength="100" placeholder="e.g. E-Commerce Backend">
+          <label for="modal-project-github" class="form-label" style="margin-top:0.75rem;">GitHub Repository URL (Optional)</label>
+          <input id="modal-project-github" type="text" placeholder="https://github.com/owner/repo (auto-imports code)">
           <label for="modal-project-desc" class="form-label" style="margin-top:0.75rem;">Description (optional)</label>
           <textarea id="modal-project-desc" rows="2" placeholder="Short description of this application…"></textarea>
           <div class="modal-actions" style="margin-top:1rem;">
             <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-project')">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Project</button>
+            <button type="submit" class="btn btn-primary">Create &amp; Ingest</button>
           </div>
         </form>
       </div>

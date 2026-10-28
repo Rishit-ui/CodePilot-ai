@@ -6,7 +6,7 @@ const { loadConfig } = require('./config');
 const { Store } = require('./db');
 const { ArchiveError, readZip, contentHash } = require('./archive');
 const { analyze } = require('./analyzer');
-const { validateUrlForSSRF, fetchRemoteZip, SSRFError } = require('./importer');
+const { validateUrlForSSRF, fetchRemoteZip, fetchGithubOrRemoteZip, normalizeGithubRepoUrl, SSRFError } = require('./importer');
 const { generateArchitectureReport, exportReportToMarkdown } = require('./architecture');
 const {
   answerQuestionWithContext,
@@ -317,16 +317,16 @@ function createApp(options = {}) {
         if (!(await store.project(projectId))) return noProject(response);
 
         const body = parseJson(await readBody(request, 16 * 1024));
-        const urlToFetch = (body.url || '').trim();
-        if (!urlToFetch) return error(response, 422, 'URL_REQUIRED', 'A remote archive URL is required.');
+        const rawUrl = (body.url || body.repo || '').trim();
+        if (!rawUrl) return error(response, 422, 'URL_REQUIRED', 'A remote archive URL or GitHub repository link is required.');
 
-        const job = await store.createJob(projectId, 'import-url', `Fetching remote archive from ${urlToFetch}`);
+        const job = await store.createJob(projectId, 'import-url', `Fetching repository from ${rawUrl}`);
         try {
-          const archive = await fetchRemoteZip(urlToFetch, config.limits.maxUploadBytes);
+          const archive = await fetchGithubOrRemoteZip(rawUrl, config.limits.maxUploadBytes);
           const hash = contentHash(archive);
           const entries = readZip(archive, config.limits);
           const records = analyze(entries);
-          const saved = await store.saveRevision(projectId, hash, records, `Remote import from ${urlToFetch}`);
+          const saved = await store.saveRevision(projectId, hash, records, `Remote import from ${rawUrl}`);
 
           await store.finishJob(job.id, saved.revision.id, 'completed', `Imported ${records.files.length} files.`);
           return json(response, 201, {

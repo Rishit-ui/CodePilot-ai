@@ -1201,8 +1201,11 @@ function initCommandPalette() {
 }
 
 function switchImportTab(type) {
+  $('#tab-btn-github')?.classList.toggle('active', type === 'github');
   $('#tab-btn-zip')?.classList.toggle('active', type === 'zip');
   $('#tab-btn-url')?.classList.toggle('active', type === 'url');
+
+  $('#github-import-form')?.classList.toggle('hidden', type !== 'github');
   $('#zip-import-form')?.classList.toggle('hidden', type !== 'zip');
   $('#url-import-form')?.classList.toggle('hidden', type !== 'url');
 }
@@ -1248,6 +1251,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#project-create-modal-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = $('#modal-project-name').value.trim();
+    const githubUrl = ($('#modal-project-github')?.value || '').trim();
     const description = $('#modal-project-desc').value.trim();
     if (!name) return;
     try {
@@ -1258,9 +1262,26 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       closeModal('modal-create-project');
       $('#modal-project-name').value = '';
+      if ($('#modal-project-github')) $('#modal-project-github').value = '';
       $('#modal-project-desc').value = '';
       await loadProjects();
-      selectProject(data.project.id);
+      await selectProject(data.project.id);
+
+      // If user provided a GitHub link during creation, auto-ingest it!
+      if (githubUrl) {
+        showFeedback('#import-feedback', 'Fetching and ingesting GitHub repository…');
+        try {
+          await api(`/api/projects/${encodeURIComponent(data.project.id)}/import-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: githubUrl })
+          });
+          showFeedback('#import-feedback', 'GitHub repository successfully imported and analyzed!');
+          selectProject(data.project.id);
+        } catch (fetchErr) {
+          showFeedback('#import-feedback', `Repository created, but GitHub import failed: ${fetchErr.message}`, true);
+        }
+      }
     } catch (err) {
       alert(`Failed to create project: ${err.message}`);
     }
@@ -1308,6 +1329,26 @@ window.addEventListener('DOMContentLoaded', () => {
       selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', err.message, true);
+    }
+  });
+
+  // GitHub Repo Direct Ingestion Form
+  $('#github-import-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const repoUrl = $('#github-repo-input').value.trim();
+    if (!repoUrl || !state.activeProject) return;
+    showFeedback('#import-feedback', 'Fetching GitHub repository archive (main/master)…');
+
+    try {
+      await api(`/api/projects/${encodeURIComponent(state.activeProject)}/import-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: repoUrl })
+      });
+      showFeedback('#import-feedback', 'GitHub repository successfully ingested and analyzed!');
+      selectProject(state.activeProject);
+    } catch (err) {
+      showFeedback('#import-feedback', `GitHub import failed: ${err.message}`, true);
     }
   });
 

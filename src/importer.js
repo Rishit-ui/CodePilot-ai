@@ -91,7 +91,63 @@ async function validateUrlForSSRF(urlString) {
   return parsed;
 }
 
-async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs = 15000) {
+/**
+ * Normalizes user-provided GitHub repository links into direct ZIP archive download URLs.
+ * Handles:
+ * - https://github.com/owner/repo
+ * - https://github.com/owner/repo/
+ * - https://github.com/owner/repo.git
+ * - https://github.com/owner/repo/tree/branch
+ * - owner/repo shorthand
+ * - Already direct ZIP links (returns as-is)
+ */
+function normalizeGithubRepoUrl(inputUrl, defaultBranch = 'main') {
+  if (!inputUrl || typeof inputUrl !== 'string') return inputUrl;
+  let trimmed = inputUrl.trim();
+
+  // If already a direct zip link, return as-is
+  if (trimmed.endsWith('.zip') || trimmed.includes('/archive/')) {
+    return trimmed;
+  }
+
+  // Handle owner/repo shorthand e.g. "Rishit-ui/CodePilot-ai"
+  const shorthandMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+  if (shorthandMatch) {
+    const owner = shorthandMatch[1];
+    const repo = shorthandMatch[2].replace(/\.git$/, '');
+    return `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`;
+  }
+
+  // Try parsing standard URL
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname === 'github.com' || parsed.hostname === 'www.github.com') {
+      const parts = parsed.pathname.replace(/^\/+|\/+$/g, '').split('/');
+      if (parts.length >= 2) {
+        const owner = parts[0];
+        const repo = parts[1].replace(/\.git$/, '');
+
+        // If tree branch is specified: /owner/repo/tree/branch-name
+        if (parts[2] === 'tree' && parts[3]) {
+          const branch = parts.slice(3).join('/');
+          return `https://github.com/${owner}/${repo}/archive/refs/heads/${branch}.zip`;
+        }
+
+        return `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`;
+      }
+    }
+  } catch {
+    // Not a valid standard URL, return original for validateUrlForSSRF to handle error
+  }
+
+  return trimmed;
+}
+
+async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs = 15000, redirectCount = 0) {
+  if (redirectCount > 5) {
+    throw new SSRFError('Too many redirects while fetching remote archive.');
+  }
+
   const parsed = await validateUrlForSSRF(urlString);
 
   return new Promise((resolve, reject) => {
@@ -101,7 +157,7 @@ async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs 
       {
         headers: {
           'User-Agent': 'CodePilotAI-Importer/1.0 (Security Scanner)',
-          'Accept': 'application/zip, application/octet-stream'
+          'Accept': 'application/zip, application/octet-stream, */*'
         },
         timeout: timeoutMs
       },
@@ -109,7 +165,7 @@ async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs 
         // Handle redirects safely (re-validating SSRF on redirect location)
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           const redirectUrl = new URL(res.headers.location, parsed).toString();
-          return fetchRemoteZip(redirectUrl, maxBytes, timeoutMs).then(resolve).catch(reject);
+          return fetchRemoteZip(redirectUrl, maxBytes, timeoutMs, redirectCount + 1).then(resolve).catch(reject);
         }
 
         if (res.statusCode !== 200) {
@@ -145,9 +201,28 @@ async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs 
   });
 }
 
+/**
+ * Intelligent remote fetch that tries main then falls back to master if 404 (common GitHub pattern)
+ */
+async function fetchGithubOrRemoteZip(inputUrl, maxBytes = 10 * 1024 * 1024, timeoutMs = 15000) {
+  const normalizedMain = normalizeGithubRepoUrl(inputUrl, 'main');
+  try {
+    return await fetchRemoteZip(normalizedMain, maxBytes, timeoutMs);
+  } catch (err) {
+    // If GitHub returned 404 for main branch, try fallback to master branch
+    if (normalizedMain.includes('/refs/heads/main.zip') && err.message.includes('HTTP 404')) {
+      const normalizedMaster = normalizeGithubRepoUrl(inputUrl, 'master');
+      return await fetchRemoteZip(normalizedMaster, maxBytes, timeoutMs);
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   isPrivateIp,
   validateUrlForSSRF,
+  normalizeGithubRepoUrl,
   fetchRemoteZip,
+  fetchGithubOrRemoteZip,
   SSRFError
 };
