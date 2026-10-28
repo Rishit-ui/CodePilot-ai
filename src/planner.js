@@ -1,6 +1,6 @@
-function generatePlanFromRequirement(store, project, revision, requirement) {
+async function generatePlanFromRequirement(store, project, revision, requirement) {
   const reqLower = requirement.toLowerCase();
-  const files = store.all('SELECT path, language FROM files WHERE revision_id=? AND excluded_reason IS NULL', revision.id);
+  const files = await store.all('SELECT path, language FROM files WHERE revision_id=? AND excluded_reason IS NULL', revision.id);
 
   // Identify affected files & components
   const targetFiles = [];
@@ -55,7 +55,7 @@ function generatePlanFromRequirement(store, project, revision, requirement) {
     acceptanceCriteria: 'Diagnostics pass with zero new high/critical findings.'
   });
 
-  const plan = store.createPlan(
+  const plan = await store.createPlan(
     project.id,
     revision.id,
     `Implementation Plan: ${requirement.slice(0, 50)}`,

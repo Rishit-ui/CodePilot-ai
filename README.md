@@ -86,6 +86,20 @@ http://127.0.0.1:3000
 
 ---
 
+## Vercel Deployment
+
+CodePilot AI is fully optimized for **Vercel Serverless Functions** and static edge hosting:
+
+1. Import the repository `https://github.com/Rishit-ui/CodePilot-ai` into your Vercel Dashboard.
+2. In **Project Settings > Environment Variables**, configure:
+   - `DATABASE_URL` (or attach **Vercel Postgres** / **Neon** / **Supabase** via marketplace integrations).
+   - `CODEPILOT_SESSION_SECRET` (generate a random 32+ character string).
+   - *(Optional)* `CODEPILOT_AI_PROVIDER` (`local` by default, or `openai`, `anthropic`, `gemini`).
+   - *(Optional)* `CODEPILOT_AI_API_KEY` (if using an external AI provider).
+3. Deploy! Vercel will automatically serve the static dashboard from `public/` and route all `/api/*` endpoints to the serverless function in `api/index.js` as defined in `vercel.json`.
+
+---
+
 ## Docker Deployment
 
 To run CodePilot AI in an isolated container:

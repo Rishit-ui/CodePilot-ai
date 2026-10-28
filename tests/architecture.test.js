@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { generateArchitectureReport, exportReportToMarkdown } = require('../src/architecture');
 
-test('generateArchitectureReport produces all 15 specification sections', () => {
+test('generateArchitectureReport produces all 15 specification sections', async () => {
   const dummyStore = {
-    all: (sql, revId) => {
+    all: async (sql, revId) => {
       if (sql.includes('FROM files')) {
         return [
           { path: 'src/index.js', language: 'JavaScript', bytes: 100, excluded_reason: null },
@@ -31,7 +31,7 @@ test('generateArchitectureReport produces all 15 specification sections', () => 
   };
 
   const project = { id: 'p1', name: 'CommerceEngine' };
-  const report = generateArchitectureReport(dummyStore, 'r1', project);
+  const report = await generateArchitectureReport(dummyStore, 'r1', project);
 
   assert.ok(report.executiveOverview);
   assert.ok(report.technologyInventory);

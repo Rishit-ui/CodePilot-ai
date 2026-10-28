@@ -42,9 +42,9 @@ async function checkLiveUrl(targetUrl, timeoutMs = 8000) {
   });
 }
 
-function evaluateReadiness(store, projectId, revisionId) {
-  const findings = store.all("SELECT * FROM findings WHERE revision_id=? AND status != 'suppressed'", revisionId);
-  const files = store.all('SELECT path FROM files WHERE revision_id=?', revisionId);
+async function evaluateReadiness(store, projectId, revisionId) {
+  const findings = await store.all("SELECT * FROM findings WHERE revision_id=? AND status != 'suppressed'", revisionId);
+  const files = await store.all('SELECT path FROM files WHERE revision_id=?', revisionId);
 
   const criticalOrHigh = findings.filter((f) => f.severity === 'critical' || f.severity === 'high');
   const hasDockerfile = files.some((f) => f.path.toLowerCase().includes('dockerfile'));
@@ -97,10 +97,10 @@ function evaluateReadiness(store, projectId, revisionId) {
 }
 
 async function executeDeployment(store, deploymentId, config, hostHeader = null) {
-  const deployment = store.getDeployment(deploymentId);
+  const deployment = await store.getDeployment(deploymentId);
   if (!deployment) throw new Error('Deployment not found');
 
-  store.updateDeployment(deploymentId, {
+  await store.updateDeployment(deploymentId, {
     status: 'deploying',
     log: 'Starting deployment execution pipeline...'
   });
@@ -108,7 +108,7 @@ async function executeDeployment(store, deploymentId, config, hostHeader = null)
   try {
     if (deployment.provider === 'mock' || deployment.provider === 'local-docker') {
       // Execute verified deployment workflow
-      store.updateDeployment(deploymentId, {
+      await store.updateDeployment(deploymentId, {
         log: `Provisioning container workload for ${deployment.environment} environment...`
       });
 
@@ -116,7 +116,7 @@ async function executeDeployment(store, deploymentId, config, hostHeader = null)
       const simulatedUrl = `http://${targetHost}/api/health`;
       const healthCheckUrl = `http://${targetHost}/api/health`;
 
-      store.updateDeployment(deploymentId, {
+      await store.updateDeployment(deploymentId, {
         status: 'verifying',
         publicUrl: simulatedUrl,
         healthCheckUrl: healthCheckUrl,
@@ -127,13 +127,13 @@ async function executeDeployment(store, deploymentId, config, hostHeader = null)
       const checkResult = await checkLiveUrl(healthCheckUrl);
 
       if (checkResult.ok) {
-        store.updateDeployment(deploymentId, {
+        await store.updateDeployment(deploymentId, {
           status: 'verified',
           healthStatus: 'healthy',
           log: `Health verification PASSED (HTTP ${checkResult.status}). Live application confirmed accessible.`
         });
       } else {
-        store.updateDeployment(deploymentId, {
+        await store.updateDeployment(deploymentId, {
           status: 'failed',
           healthStatus: 'unhealthy',
           log: `Health verification FAILED: ${checkResult.error || `HTTP ${checkResult.status}`}`,
@@ -141,21 +141,21 @@ async function executeDeployment(store, deploymentId, config, hostHeader = null)
         });
       }
     } else {
-      store.updateDeployment(deploymentId, {
+      await store.updateDeployment(deploymentId, {
         status: 'failed',
         errorMessage: `Cloud provider adapter "${deployment.provider}" requires cloud credentials in .env before live cloud deployment.`,
         log: `Configuration error: Provider "${deployment.provider}" missing active API credentials.`
       });
     }
   } catch (err) {
-    store.updateDeployment(deploymentId, {
+    await store.updateDeployment(deploymentId, {
       status: 'failed',
       errorMessage: err.message,
       log: `Fatal deployment exception: ${err.message}`
     });
   }
 
-  return store.getDeployment(deploymentId);
+  return await store.getDeployment(deploymentId);
 }
 
 module.exports = {

@@ -26,13 +26,13 @@ function extractKeywords(question) {
   return [...new Set(words.filter((w) => !stopWords.has(w)))].slice(0, 16);
 }
 
-function retrieveEvidence(store, revisionId, question, maxFiles = 4) {
+async function retrieveEvidence(store, revisionId, question, maxFiles = 4) {
   const keywords = extractKeywords(question);
   if (!keywords.length) {
     return { files: [], citations: [] };
   }
 
-  const files = store.all(
+  const files = await store.all(
     'SELECT path, content, language FROM files WHERE revision_id=? AND content IS NOT NULL AND excluded_reason IS NULL',
     revisionId
   );
@@ -149,7 +149,7 @@ async function callOpenAICompatible(aiConfig, systemPrompt, userPrompt) {
 }
 
 async function answerQuestionWithContext(store, project, revision, question, aiConfig) {
-  const evidence = retrieveEvidence(store, revision.id, question);
+  const evidence = await retrieveEvidence(store, revision.id, question);
 
   // If local provider or no API key, use verified deterministic evidence synthesis
   if (!aiConfig || aiConfig.provider === 'local' || !aiConfig.apiKey) {

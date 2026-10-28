@@ -1,8 +1,8 @@
-function generateArchitectureReport(store, revisionId, project) {
-  const files = store.all('SELECT path, language, bytes, excluded_reason FROM files WHERE revision_id=?', revisionId);
-  const symbols = store.all('SELECT file_path, name, kind, line FROM symbols WHERE revision_id=?', revisionId);
-  const edges = store.all('SELECT source_path, target_path, type, confidence, provenance FROM edges WHERE revision_id=?', revisionId);
-  const findings = store.all('SELECT severity, category, message, file_path, line FROM findings WHERE revision_id=?', revisionId);
+async function generateArchitectureReport(store, revisionId, project) {
+  const files = await store.all('SELECT path, language, bytes, excluded_reason FROM files WHERE revision_id=?', revisionId);
+  const symbols = await store.all('SELECT file_path, name, kind, line FROM symbols WHERE revision_id=?', revisionId);
+  const edges = await store.all('SELECT source_path, target_path, type, confidence, provenance FROM edges WHERE revision_id=?', revisionId);
+  const findings = await store.all('SELECT severity, category, message, file_path, line FROM findings WHERE revision_id=?', revisionId);
 
   // Groupings & analysis
   const languages = {};
