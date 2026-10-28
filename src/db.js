@@ -473,8 +473,8 @@ class Store {
   async deleteProject(projectId, actorId = null) {
     const p = await this.project(projectId);
     if (!p) return false;
+    await this.audit('project.deleted', null, `Deleted project ${p.name} (${projectId})`, actorId);
     await this.run('DELETE FROM projects WHERE id = ?', projectId);
-    await this.audit('project.deleted', projectId, `Deleted project ${p.name}`, actorId);
     return true;
   }
 

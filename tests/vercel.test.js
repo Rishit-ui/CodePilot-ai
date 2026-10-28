@@ -117,3 +117,29 @@ test('Serverless handler handles trailing slashes gracefully', async () => {
   const parsed = JSON.parse(state.body);
   assert.equal(parsed.status, 'ok');
 });
+
+test('Serverless handler creates and deletes project without foreign key constraint failure', async () => {
+  const createReq = {
+    method: 'POST',
+    url: '/api/projects',
+    headers: { host: 'localhost', 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Lifecycle Test Project', description: 'Testing create and delete' })
+  };
+  const createResp = createMockResponse();
+  await apiHandler(createReq, createResp.res);
+  assert.equal(createResp.state.statusCode, 201);
+  const created = JSON.parse(createResp.state.body);
+  const projectId = created.project.id;
+
+  const deleteReq = {
+    method: 'DELETE',
+    url: `/api/projects/${projectId}`,
+    headers: { host: 'localhost' }
+  };
+  const deleteResp = createMockResponse();
+  await apiHandler(deleteReq, deleteResp.res);
+  assert.equal(deleteResp.state.statusCode, 200);
+  const deleted = JSON.parse(deleteResp.state.body);
+  assert.equal(deleted.success, true);
+});
+
