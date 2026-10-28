@@ -1,4 +1,4 @@
-// CodePilot AI — Client-Side Application Controller
+// CodePilot AI — Professional Client-Side Application Controller
 const state = {
   projects: [],
   activeProject: null,
@@ -6,6 +6,9 @@ const state = {
   activeFile: null,
   activeConvo: null,
   activeNote: null,
+  activeView: 'view-overview',
+  activeOperation: null,
+  operations: [],
   flow: {
     type: 'architecture',
     data: null,
@@ -49,6 +52,14 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
+function openModal(modalId) {
+  $(`#${modalId}`)?.classList.remove('hidden');
+}
+
+function closeModal(modalId) {
+  $(`#${modalId}`)?.classList.add('hidden');
+}
+
 // Service Status Check
 async function checkHealth() {
   const pill = $('#service-pill');
@@ -74,64 +85,149 @@ function initTheme() {
   });
 }
 
+// Navigation & Dedicated Tool Pages
+function navigateToView(viewId) {
+  state.activeView = viewId;
+
+  // Update sidebar active link
+  $$('.sidebar-link').forEach((link) => {
+    link.classList.toggle('active', link.dataset.view === viewId);
+  });
+
+  // Update page views
+  $$('.page-view').forEach((page) => {
+    page.classList.toggle('hidden', page.id !== viewId);
+    page.classList.toggle('active', page.id === viewId);
+  });
+
+  // Update breadcrumb
+  const link = $(`.sidebar-link[data-view="${viewId}"]`);
+  const label = link?.querySelector('.nav-label')?.textContent || 'Overview';
+  $('#bc-page').textContent = label;
+
+  loadActiveView();
+}
+
+function loadActiveView() {
+  if (!state.activeProject) return;
+  switch (state.activeView) {
+    case 'view-overview':
+      loadRecentOperations();
+      break;
+    case 'view-operations':
+      loadOperations();
+      break;
+    case 'view-flow':
+      loadFlowDiagram();
+      break;
+    case 'view-code':
+      loadFileList();
+      break;
+    case 'view-analysis':
+      loadArchitectureReport();
+      break;
+    case 'view-ai':
+      loadConversations();
+      break;
+    case 'view-planner':
+      loadPlans();
+      break;
+    case 'view-patches':
+      loadPatches();
+      break;
+    case 'view-findings':
+      loadFindings();
+      break;
+    case 'view-api':
+      loadApiStudio();
+      break;
+    case 'view-db':
+      loadDbSchema();
+      break;
+    case 'view-docker':
+      loadDocker();
+      break;
+    case 'view-deploy':
+      loadDeployments();
+      break;
+    case 'view-tasks':
+      loadTasks();
+      break;
+    case 'view-notes':
+      loadNotes();
+      break;
+    case 'view-audit':
+      loadAudit();
+      break;
+  }
+}
+
 // Project Management
 async function loadProjects() {
   try {
     const data = await api('/api/projects');
     state.projects = data.projects;
-    renderProjectChips();
+    renderTopProjectSelect();
     if (!state.activeProject && data.projects.length > 0) {
       selectProject(data.projects[0].id);
+    } else if (!data.projects.length) {
+      $('#no-project-banner').classList.remove('hidden');
+      $('#active-project-views').classList.add('hidden');
     }
   } catch (err) {
-    showFeedback('#project-feedback', err.message, true);
+    showFeedback('#import-feedback', err.message, true);
   }
 }
 
-function renderProjectChips() {
-  const container = $('#projects-container');
-  if (!container) return;
-  container.innerHTML = '';
-  if (!state.projects.length) {
-    container.innerHTML = '<span class="muted" style="font-size:0.85rem;">No projects yet. Create one above to begin.</span>';
-    return;
-  }
-
+function renderTopProjectSelect() {
+  const select = $('#top-project-select');
+  if (!select) return;
+  select.innerHTML = '<option value="">Select a project…</option>';
   state.projects.forEach((p) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `chip-btn ${state.activeProject === p.id ? 'active' : ''}`;
-    btn.innerHTML = `<span>${escapeHtml(p.name)}</span> <small class="badge badge-accent">${p.latest_status || 'New'}</small>`;
-    btn.addEventListener('click', () => selectProject(p.id));
-    container.appendChild(btn);
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.latest_status || 'New'})`;
+    if (state.activeProject === p.id) opt.selected = true;
+    select.appendChild(opt);
   });
 }
 
 async function selectProject(projectId) {
+  if (!projectId) {
+    state.activeProject = null;
+    state.activeRevision = null;
+    $('#no-project-banner').classList.remove('hidden');
+    $('#active-project-views').classList.add('hidden');
+    $('#bc-project').textContent = 'Select Project';
+    return;
+  }
+
   state.activeProject = projectId;
-  renderProjectChips();
+  renderTopProjectSelect();
 
   try {
     const data = await api(`/api/projects/${encodeURIComponent(projectId)}`);
-    $('#workspace-container').classList.remove('hidden');
-    $('#active-project-name').textContent = data.project.name;
+    $('#no-project-banner').classList.add('hidden');
+    $('#active-project-views').classList.remove('hidden');
+    $('#overview-project-title').textContent = data.project.name;
+    $('#bc-project').textContent = data.project.name;
 
-    const reportBtn = $('#btn-export-report');
+    const reportBtn = $('#btn-export-report-overview');
     if (data.revision) {
       state.activeRevision = data.revision.id;
-      $('#active-revision-info').textContent = `Revision ${data.revision.id.slice(-8)} · ${data.revision.status} · ${new Date(data.revision.created_at).toLocaleString()}`;
+      $('#overview-revision-meta').textContent = `Revision ${data.revision.id.slice(-8)} · ${data.revision.status} · ${new Date(data.revision.created_at).toLocaleString()}`;
       reportBtn.classList.remove('hidden');
       reportBtn.href = `/api/projects/${encodeURIComponent(projectId)}/architecture-report.md`;
     } else {
       state.activeRevision = null;
-      $('#active-revision-info').textContent = 'No revision imported yet.';
+      $('#overview-revision-meta').textContent = 'No revision imported yet.';
       reportBtn.classList.add('hidden');
     }
 
     renderStats(data.counts || {});
-    loadActiveTab();
+    loadActiveView();
   } catch (err) {
-    showFeedback('#project-feedback', err.message, true);
+    showFeedback('#import-feedback', err.message, true);
   }
 }
 
@@ -158,6 +254,136 @@ function renderStats(counts) {
 }
 
 // ==========================================================================
+// Operations & Background Jobs Framework
+// ==========================================================================
+async function loadOperations() {
+  if (!state.activeProject) return;
+  try {
+    const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/operations`);
+    state.operations = data.operations;
+    renderOperationsTable(data.operations);
+    updateActiveOpIndicator(data.operations);
+  } catch {}
+}
+
+async function loadRecentOperations() {
+  if (!state.activeProject) return;
+  try {
+    const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/operations`);
+    const container = $('#overview-recent-ops');
+    if (!container) return;
+    if (!data.operations.length) {
+      container.innerHTML = '<p class="muted">No operations executed yet. Click "Run Analysis" to start one.</p>';
+      return;
+    }
+    container.innerHTML = data.operations.slice(0, 5).map(op => `
+      <div class="op-event-row" style="cursor:pointer;" onclick="viewOperationDetail('${op.id}')">
+        <span class="badge badge-accent">${escapeHtml(op.status)}</span>
+        <strong>${escapeHtml(op.name)}</strong>
+        <span class="muted" style="margin-left:auto;">${new Date(op.created_at).toLocaleTimeString()}</span>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+function renderOperationsTable(operations) {
+  const container = $('#operations-list');
+  if (!container) return;
+  if (!operations.length) {
+    container.innerHTML = '<p class="muted">No operations recorded for this project yet.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Operation Name</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Stage</th>
+          <th>Progress</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${operations.map(op => `
+          <tr>
+            <td><strong>${escapeHtml(op.name)}</strong></td>
+            <td><code>${escapeHtml(op.type)}</code></td>
+            <td><span class="badge ${op.status === 'completed' ? 'badge-online' : 'badge-accent'}">${escapeHtml(op.status)}</span></td>
+            <td>${escapeHtml(op.stage)}</td>
+            <td>${op.progress}%</td>
+            <td>${new Date(op.created_at).toLocaleTimeString()}</td>
+            <td><button type="button" class="btn btn-secondary btn-sm" onclick="viewOperationDetail('${op.id}')">Inspect</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function updateActiveOpIndicator(operations) {
+  const activeOp = operations.find(o => o.status === 'running' || o.status === 'queued');
+  const indicator = $('#active-op-indicator');
+  const badge = $('#sidebar-op-badge');
+  if (activeOp) {
+    indicator.classList.remove('hidden');
+    $('#active-op-label').textContent = `${activeOp.name} (${activeOp.progress}%)`;
+    badge.classList.remove('hidden');
+    badge.textContent = '1';
+  } else {
+    indicator.classList.add('hidden');
+    badge.classList.add('hidden');
+  }
+}
+
+async function startOperation(type, name, config = {}) {
+  if (!state.activeProject) return;
+  try {
+    const res = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/operations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, name, config })
+    });
+    closeModal('modal-launch-operation');
+    loadOperations();
+    viewOperationDetail(res.operation.id);
+  } catch (err) {
+    alert(`Failed to launch operation: ${err.message}`);
+  }
+}
+
+async function viewOperationDetail(opId) {
+  try {
+    const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/operations/${encodeURIComponent(opId)}`);
+    const op = data.operation;
+    const panel = $('#operation-detail-panel');
+    panel.classList.remove('hidden');
+
+    $('#op-detail-title').textContent = op.name;
+    $('#op-detail-badge').textContent = op.status;
+    $('#op-detail-badge').className = `badge ${op.status === 'completed' ? 'badge-online' : 'badge-accent'}`;
+    $('#op-detail-meta').textContent = `Type: ${op.type} · Stage: ${op.stage} · Started: ${new Date(op.created_at).toLocaleString()}`;
+    $('#op-detail-progress-fill').style.width = `${op.progress}%`;
+    $('#op-detail-summary').textContent = op.summary || (op.status === 'running' ? 'Processing operation stages…' : 'Finished.');
+
+    const eventsList = $('#op-detail-events');
+    eventsList.innerHTML = (op.events || []).map(e => `
+      <div class="op-event-row">
+        <span class="muted">[${new Date(e.created_at).toLocaleTimeString()}]</span>
+        <span class="badge">${escapeHtml(e.stage)}</span>
+        <span>${escapeHtml(e.message)}</span>
+      </div>
+    `).join('');
+
+    panel.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    alert(`Failed to load operation detail: ${err.message}`);
+  }
+}
+
+// ==========================================================================
 // CodePilot Flow Controller (Signature Feature)
 // ==========================================================================
 async function loadFlowDiagram(type = state.flow.type) {
@@ -173,7 +399,6 @@ async function loadFlowDiagram(type = state.flow.type) {
     return;
   }
 
-  // Highlight active flow pill
   $$('.flow-type-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.flow === type);
   });
@@ -201,7 +426,6 @@ function renderFlowGraph(diagram) {
     nodeCoords.set(n.id, { x: n.x, y: n.y, w: n.width, h: n.height });
   });
 
-  // Render Edges with directional markers
   edges.forEach((edge) => {
     const s = nodeCoords.get(edge.source);
     const t = nodeCoords.get(edge.target);
@@ -233,7 +457,6 @@ function renderFlowGraph(diagram) {
     }
   });
 
-  // Render Nodes with custom card styles
   nodes.forEach((node) => {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', `flow-node-group ${state.flow.selectedNode === node.id ? 'selected' : ''}`);
@@ -245,14 +468,13 @@ function renderFlowGraph(diagram) {
     rect.setAttribute('rx', 8);
     rect.setAttribute('class', 'node-box');
 
-    // Type indicator stripe
     const stripe = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     stripe.setAttribute('x', 0);
     stripe.setAttribute('y', 0);
     stripe.setAttribute('width', 5);
     stripe.setAttribute('height', node.height);
     stripe.setAttribute('rx', 3);
-    stripe.setAttribute('fill', getNodeTypeColor(node.type));
+    stripe.setAttribute('class', `node-stripe stripe-${node.type || 'default'}`);
 
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     title.setAttribute('x', 14);
@@ -264,67 +486,42 @@ function renderFlowGraph(diagram) {
     sub.setAttribute('x', 14);
     sub.setAttribute('y', 44);
     sub.setAttribute('class', 'node-sub');
-    sub.textContent = node.subtitle ? (node.subtitle.length > 25 ? `${node.subtitle.slice(0, 23)}…` : node.subtitle) : '';
+    sub.textContent = node.subtitle || node.type || '';
 
     g.appendChild(rect);
     g.appendChild(stripe);
     g.appendChild(title);
     g.appendChild(sub);
 
-    g.addEventListener('click', () => selectFlowNode(node));
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectFlowNode(node);
+    });
+
     nodesLayer.appendChild(g);
   });
 }
 
-function getNodeTypeColor(type) {
-  switch (type) {
-    case 'api-endpoint': return '#38bdf8'; // Cyan
-    case 'client-view': return '#818cf8'; // Indigo
-    case 'service-module': case 'entrypoint': return '#34d399'; // Emerald
-    case 'database-entity': return '#fbbf24'; // Amber
-    case 'external-package': return '#a855f7'; // Purple
-    case 'flow-decision': return '#f59e0b'; // Amber diamond
-    case 'error-handler': case 'error-outcome': return '#f43f5e'; // Rose
-    default: return '#38bdf8';
-  }
-}
-
 function selectFlowNode(node) {
   state.flow.selectedNode = node.id;
+  $$('.flow-node-group').forEach((g) => g.classList.remove('selected'));
   renderFlowGraph(state.flow.data);
 
-  const panel = $('#flow-inspector-panel');
-  const body = $('#inspector-body');
-  if (!panel || !body) return;
-
-  body.classList.remove('hidden');
+  $('#inspector-badge').textContent = node.evidence || 'Static Analysis';
   $('#inspector-title').textContent = node.label;
   $('#inspector-subtitle').textContent = node.subtitle || node.type;
-  $('#inspector-badge').textContent = node.evidence || 'Static Analysis';
-  $('#inspector-file-loc').textContent = node.path ? `${node.path}:${node.line || 1}` : 'Inferred Component';
+  $('#inspector-file-loc').textContent = node.path ? `${node.path}:${node.line || 1}` : 'Inferred Node';
+  $('#inspector-excerpt').textContent = node.excerpt || 'No source excerpt associated with this component.';
+  $('#inspector-body').classList.remove('hidden');
 
-  const excerpt = $('#inspector-excerpt');
-  if (node.excerpt) {
-    excerpt.textContent = node.excerpt;
-    excerpt.classList.remove('hidden');
-  } else {
-    excerpt.textContent = `Component Type: ${node.type}\nLayer: ${node.layer || 'core'}\nProvenance: Verified via static AST inspection.`;
-  }
-
-  // Open in Code Explorer Action
-  const btnExplorer = $('#btn-open-in-explorer');
-  if (node.path) {
-    btnExplorer.classList.remove('hidden');
-    btnExplorer.onclick = () => {
-      $('[data-tab="tab-code"]')?.click();
+  $('#btn-open-in-explorer').onclick = () => {
+    if (node.path) {
+      navigateToView('view-code');
       viewFile(node.path);
-    };
-  } else {
-    btnExplorer.classList.add('hidden');
-  }
+    }
+  };
 }
 
-// Flow Canvas Pan & Zoom Interaction
 function initFlowInteractions() {
   const canvasBox = $('#flow-canvas-box');
   const viewport = $('#flow-viewport');
@@ -338,7 +535,7 @@ function initFlowInteractions() {
   }
 
   canvasBox.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.flow-node-group')) return;
+    if (e.target.tagName === 'rect' || e.target.tagName === 'text') return;
     state.flow.isPanning = true;
     state.flow.startX = e.clientX - state.flow.panX;
     state.flow.startY = e.clientY - state.flow.panY;
@@ -379,14 +576,12 @@ function initFlowInteractions() {
     updateTransform();
   });
 
-  // Flow Diagram Type Pills
   $$('.flow-type-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       loadFlowDiagram(btn.dataset.flow);
     });
   });
 
-  // Export SVG
   $('#btn-flow-export-svg')?.addEventListener('click', () => {
     const svgEl = $('#flow-svg-canvas');
     if (!svgEl) return;
@@ -399,7 +594,6 @@ function initFlowInteractions() {
     URL.revokeObjectURL(url);
   });
 
-  // Export JSON
   $('#btn-flow-export-json')?.addEventListener('click', () => {
     if (!state.flow.data) return;
     const blob = new Blob([JSON.stringify(state.flow.data, null, 2)], { type: 'application/json' });
@@ -411,7 +605,6 @@ function initFlowInteractions() {
     URL.revokeObjectURL(url);
   });
 
-  // Save Diagram
   $('#btn-flow-save')?.addEventListener('click', async () => {
     if (!state.flow.data) return;
     const title = prompt('Enter a title for this saved diagram:', state.flow.data.title || 'Architecture Diagram');
@@ -432,7 +625,6 @@ function initFlowInteractions() {
     }
   });
 
-  // Diagram AI Natural Language Q&A Form
   $('#diagram-ai-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = $('#diagram-ai-input').value.trim();
@@ -505,7 +697,6 @@ async function viewFile(filePath) {
   }
 }
 
-// Code AI Actions
 function initCodeAiActions() {
   const feedback = $('#code-ai-feedback');
   $('#btn-code-explain')?.addEventListener('click', async () => {
@@ -530,7 +721,7 @@ function initCodeAiActions() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: $('#code-preview').textContent, filePath: state.activeFile })
       });
-      feedback.textContent = res.tests;
+      feedback.textContent = res.testCode || res.tests;
     } catch (err) { feedback.textContent = err.message; }
   });
 
@@ -545,9 +736,46 @@ function initCodeAiActions() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: $('#code-preview').textContent, instruction: inst })
       });
-      feedback.textContent = res.result;
+      feedback.textContent = res.refactoredCode || res.result;
     } catch (err) { feedback.textContent = err.message; }
   });
+}
+
+// ==========================================================================
+// Architecture Report & In-Depth Analysis
+// ==========================================================================
+async function loadArchitectureReport() {
+  const container = $('#analysis-report-container');
+  if (!state.activeRevision) {
+    container.innerHTML = '<p class="muted">Import a revision first to view architecture analysis.</p>';
+    return;
+  }
+  try {
+    const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/architecture-report`);
+    const r = data.report;
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:1.25rem;">
+        <div>
+          <h4>System Archetype: <span class="badge badge-accent">${escapeHtml(r.archetype?.type || 'Standard')}</span></h4>
+          <p class="muted" style="margin-top:0.25rem;">${escapeHtml(r.archetype?.summary || '')}</p>
+        </div>
+        <div>
+          <h4>Component Boundaries (${r.layers?.length || 0} Layers)</h4>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+            ${(r.layers || []).map(l => `<span class="badge">${escapeHtml(l.name)}</span>`).join('')}
+          </div>
+        </div>
+        <div>
+          <h4>Exposed Routes (${r.entryPoints?.routes?.length || 0})</h4>
+          <div style="display:flex; flex-direction:column; gap:0.25rem; margin-top:0.4rem;">
+            ${(r.entryPoints?.routes || []).slice(0, 15).map(rt => `<div class="op-event-row"><code>${escapeHtml(rt.method)} ${escapeHtml(rt.path)}</code> <span class="muted">${escapeHtml(rt.sourceFile)}:${rt.line}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<p class="muted" style="color:var(--accent-rose);">${escapeHtml(err.message)}</p>`;
+  }
 }
 
 // ==========================================================================
@@ -578,13 +806,13 @@ async function selectConversation(convoId) {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/conversations/${encodeURIComponent(convoId)}`);
     msgBox.innerHTML = '';
     data.messages.forEach((m) => {
-      const bubble = document.createElement('div');
-      bubble.style.padding = '0.6rem 0.8rem';
-      bubble.style.borderRadius = '6px';
-      bubble.style.background = m.role === 'user' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)';
-      bubble.style.border = '1px solid var(--border-subtle)';
-      bubble.innerHTML = `<strong>${m.role === 'user' ? 'You' : 'CodePilot AI'}:</strong> <div style="white-space:pre-wrap; margin-top:0.25rem;">${escapeHtml(m.content)}</div>`;
-      msgBox.appendChild(bubble);
+      const b = document.createElement('div');
+      b.style.padding = '0.6rem 0.8rem';
+      b.style.borderRadius = '6px';
+      b.style.background = m.role === 'user' ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)';
+      b.style.border = '1px solid var(--border-subtle)';
+      b.innerHTML = `<strong>${m.role === 'user' ? 'You' : 'CodePilot AI'}:</strong> <div style="white-space:pre-wrap; margin-top:0.25rem;">${escapeHtml(m.content)}</div>`;
+      msgBox.appendChild(b);
     });
     msgBox.scrollTop = msgBox.scrollHeight;
   } catch {}
@@ -595,82 +823,52 @@ async function selectConversation(convoId) {
 // ==========================================================================
 async function loadTasks() {
   if (!state.activeProject) return;
-  const colTodo = $('#tasks-list-todo');
-  const colProg = $('#tasks-list-in-progress');
-  const colReview = $('#tasks-list-in-review');
-  const colDone = $('#tasks-list-done');
-  if (!colTodo) return;
-
-  colTodo.innerHTML = ''; colProg.innerHTML = ''; colReview.innerHTML = ''; colDone.innerHTML = '';
-  let countTodo = 0, countProg = 0, countRev = 0, countDone = 0;
-
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks`);
-    data.tasks.forEach((t) => {
+    const tasks = data.tasks || [];
+    ['todo', 'in-progress', 'in-review', 'done'].forEach(col => {
+      $(`#tasks-list-${col}`).innerHTML = '';
+      $(`#count-${col}`).textContent = '0';
+    });
+
+    const statusMap = { todo: 'todo', in_progress: 'in-progress', in_review: 'in-review', done: 'done' };
+    const counts = { todo: 0, 'in-progress': 0, 'in-review': 0, done: 0 };
+
+    tasks.forEach(t => {
+      const colId = statusMap[t.status] || 'todo';
+      counts[colId]++;
       const card = document.createElement('div');
       card.className = 'task-card';
       card.innerHTML = `
-        <div class="task-card-header">
-          <span class="task-card-title">${escapeHtml(t.title)}</span>
-          <span class="badge ${t.priority === 'urgent' ? 'badge-warning' : 'badge-accent'}">${t.priority}</span>
-        </div>
-        <p class="muted" style="font-size:0.8rem;">${escapeHtml(t.description || 'No description')}</p>
+        <div class="task-card-title">${escapeHtml(t.title)}</div>
         <div class="task-card-meta">
+          <span class="badge">${escapeHtml(t.priority)}</span>
           ${t.target_file ? `<span class="badge badge-idle">${escapeHtml(t.target_file)}</span>` : ''}
-          <div style="margin-left:auto; display:flex; gap:0.25rem;">
-            ${t.status !== 'todo' ? `<button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:0.15rem 0.35rem;" onclick="moveTask('${t.id}', 'todo')">← Todo</button>` : ''}
-            ${t.status !== 'in-progress' ? `<button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:0.15rem 0.35rem;" onclick="moveTask('${t.id}', 'in-progress')">Progress</button>` : ''}
-            ${t.status !== 'done' ? `<button type="button" class="btn btn-accent" style="font-size:0.7rem; padding:0.15rem 0.35rem;" onclick="moveTask('${t.id}', 'done')">✓ Done</button>` : ''}
-            <button type="button" class="btn btn-secondary" style="color:var(--accent-rose); font-size:0.7rem; padding:0.15rem 0.35rem;" onclick="deleteTaskItem('${t.id}')">✕</button>
-          </div>
         </div>
       `;
-
-      if (t.status === 'in-progress') { colProg.appendChild(card); countProg++; }
-      else if (t.status === 'in-review') { colReview.appendChild(card); countRev++; }
-      else if (t.status === 'done') { colDone.appendChild(card); countDone++; }
-      else { colTodo.appendChild(card); countTodo++; }
+      $(`#tasks-list-${colId}`)?.appendChild(card);
     });
 
-    $('#count-todo').textContent = countTodo;
-    $('#count-in-progress').textContent = countProg;
-    $('#count-in-review').textContent = countRev;
-    $('#count-done').textContent = countDone;
+    Object.keys(counts).forEach(k => { $(`#count-${k}`).textContent = counts[k]; });
   } catch {}
-}
-
-async function moveTask(taskId, newStatus) {
-  try {
-    await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks/${encodeURIComponent(taskId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
-    });
-    loadTasks();
-  } catch (err) { alert(err.message); }
-}
-
-async function deleteTaskItem(taskId) {
-  if (!confirm('Delete this task?')) return;
-  try {
-    await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
-    loadTasks();
-  } catch (err) { alert(err.message); }
 }
 
 // ==========================================================================
 // Notes & Knowledge Base Workspace
 // ==========================================================================
 async function loadNotes() {
-  const container = $('#notes-list-container');
-  if (!container || !state.activeProject) return;
+  if (!state.activeProject) return;
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/notes`);
+    const container = $('#notes-list-container');
     container.innerHTML = '';
-    data.notes.forEach((n) => {
+    data.notes.forEach(n => {
       const item = document.createElement('div');
       item.className = `notes-item ${state.activeNote === n.id ? 'active' : ''}`;
-      item.innerHTML = `<strong>${escapeHtml(n.title)}</strong><div class="muted" style="font-size:0.75rem;">${escapeHtml(n.category)} · ${new Date(n.updated_at).toLocaleDateString()}</div>`;
+      item.innerHTML = `
+        <strong>${escapeHtml(n.title)}</strong>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;">${escapeHtml(n.category)} · ${new Date(n.created_at).toLocaleDateString()}</div>
+      `;
       item.onclick = () => selectNote(n);
       container.appendChild(item);
     });
@@ -683,120 +881,120 @@ function selectNote(note) {
   $('#note-content-input').value = note.content;
   $('#note-category-select').value = note.category;
   $('#note-tags-input').value = note.tags || '';
+  $$('.notes-item').forEach(el => el.classList.remove('active'));
   loadNotes();
 }
 
 // ==========================================================================
-// API Studio Controller
+// API Studio Workspace
 // ==========================================================================
+function loadApiStudio() {}
+
 function initApiStudio() {
   $('#btn-send-api-req')?.addEventListener('click', async () => {
     const method = $('#api-req-method').value;
     const url = $('#api-req-url').value.trim();
-    if (!url) return alert('Enter target URL.');
+    if (!url) return alert('Enter a request URL.');
 
     const statusBadge = $('#api-resp-status');
-    const respBody = $('#api-resp-body');
+    const bodyBox = $('#api-resp-body');
     statusBadge.textContent = 'Sending…';
-    statusBadge.className = 'badge badge-idle';
-
-    let headers = {};
-    try {
-      const hText = $('#api-req-headers').value.trim();
-      if (hText) headers = JSON.parse(hText);
-    } catch { return alert('Invalid JSON in Request Headers.'); }
-
-    let body = null;
-    const bText = $('#api-req-body').value.trim();
-    if (bText && method !== 'GET') body = bText;
+    bodyBox.textContent = 'Awaiting HTTP response…';
 
     try {
+      let headers = {};
+      const headersVal = $('#api-req-headers').value.trim();
+      if (headersVal) {
+        try { headers = JSON.parse(headersVal); } catch { alert('Headers must be valid JSON'); return; }
+      }
+      let bodyData = $('#api-req-body').value.trim() || undefined;
+
       const res = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/api-requests/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, url, headers, body })
+        body: JSON.stringify({ method, url, headers, body: bodyData })
       });
-      const result = res.result;
-      statusBadge.textContent = `${result.status} ${result.statusText} (${result.durationMs}ms)`;
-      statusBadge.className = `badge ${result.status >= 200 && result.status < 300 ? 'badge-accent' : 'badge-warning'}`;
-      respBody.textContent = result.body;
+
+      const r = res.result;
+      statusBadge.textContent = `${r.status} ${r.statusText || ''} (${r.durationMs}ms)`;
+      statusBadge.className = `badge ${r.status >= 200 && r.status < 300 ? 'badge-online' : 'badge-accent'}`;
+      bodyBox.textContent = typeof r.body === 'object' ? JSON.stringify(r.body, null, 2) : r.body;
     } catch (err) {
       statusBadge.textContent = 'Error';
-      statusBadge.className = 'badge badge-warning';
-      respBody.textContent = err.message;
+      statusBadge.className = 'badge badge-accent';
+      bodyBox.textContent = err.message;
     }
   });
 }
 
 // ==========================================================================
-// Database Studio Controller
+// Database Studio Workspace
 // ==========================================================================
-async function loadDbStudio() {
+async function loadDbSchema() {
   if (!state.activeProject) return;
-  const tablesContainer = $('#db-tables-list');
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/db-schema`);
     $('#db-dialect-badge').textContent = data.dialect;
-    tablesContainer.innerHTML = '';
-    data.tables.forEach((t) => {
+    const list = $('#db-tables-list');
+    list.innerHTML = '';
+    data.tables.forEach(t => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'btn btn-secondary';
-      btn.style.fontSize = '0.75rem';
+      btn.className = 'btn btn-secondary btn-chip';
       btn.style.textAlign = 'left';
-      btn.textContent = `📊 ${t}`;
+      btn.textContent = `📋 ${t.name}`;
       btn.onclick = () => {
-        $('#db-sql-input').value = `SELECT * FROM ${t} LIMIT 15;`;
+        $('#db-sql-input').value = `SELECT * FROM ${t.name} LIMIT 10;`;
         $('#btn-run-sql').click();
       };
-      tablesContainer.appendChild(btn);
+      list.appendChild(btn);
     });
   } catch {}
 }
 
 function initDbStudio() {
   $('#btn-run-sql')?.addEventListener('click', async () => {
-    const sql = $('#db-sql-input').value.trim();
-    if (!sql) return alert('Enter a SQL statement.');
+    const query = $('#db-sql-input').value.trim();
+    if (!query) return alert('Enter a SQL statement.');
 
     const tele = $('#db-query-telemetry');
     const table = $('#db-results-table');
-    tele.textContent = 'Executing query…';
+    tele.textContent = 'Running safe query…';
 
     try {
-      const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/db-query`, {
+      const res = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/db-query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql })
+        body: JSON.stringify({ query })
       });
-      tele.textContent = `Returned ${data.rowCount} rows in ${data.durationMs}ms.`;
-      
-      table.innerHTML = '';
-      if (data.columns.length > 0) {
-        const thead = document.createElement('thead');
-        const trHead = document.createElement('tr');
-        data.columns.forEach((col) => {
-          const th = document.createElement('th');
-          th.textContent = col;
-          trHead.appendChild(th);
-        });
-        thead.appendChild(trHead);
-        table.appendChild(thead);
 
-        const tbody = document.createElement('tbody');
-        data.rows.forEach((row) => {
-          const tr = document.createElement('tr');
-          data.columns.forEach((col) => {
-            const td = document.createElement('td');
-            td.textContent = row[col] !== null ? String(row[col]) : 'NULL';
-            tr.appendChild(td);
-          });
-          tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-      } else {
-        table.innerHTML = '<tr><td class="muted">Query executed successfully (no tabular rows returned).</td></tr>';
+      tele.textContent = `Returned ${res.rowCount} row(s) in ${res.executionTimeMs}ms`;
+      table.innerHTML = '';
+      if (!res.rows.length) {
+        table.innerHTML = '<tr><td class="muted">Query returned 0 rows.</td></tr>';
+        return;
       }
+      const thead = document.createElement('thead');
+      const trH = document.createElement('tr');
+      res.columns.forEach(c => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        trH.appendChild(th);
+      });
+      thead.appendChild(trH);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      res.rows.forEach(r => {
+        const tr = document.createElement('tr');
+        res.columns.forEach(c => {
+          const td = document.createElement('td');
+          td.textContent = r[c] !== null && r[c] !== undefined ? String(r[c]) : 'NULL';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
     } catch (err) {
       tele.textContent = `Error: ${err.message}`;
     }
@@ -804,256 +1002,202 @@ function initDbStudio() {
 }
 
 // ==========================================================================
-// Global Command Palette (Ctrl+K)
+// Findings & Security Workspace
 // ==========================================================================
-function initCommandPalette() {
-  const palette = $('#command-palette');
-  const input = $('#palette-search-input');
-  const results = $('#palette-results-container');
-  if (!palette || !input || !results) return;
-
-  function openPalette() {
-    palette.classList.remove('hidden');
-    input.value = '';
-    input.focus();
-    renderDefaultCommands();
-  }
-
-  function closePalette() {
-    palette.classList.add('hidden');
-  }
-
-  $('#btn-open-palette')?.addEventListener('click', openPalette);
-
-  window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      if (palette.classList.contains('hidden')) openPalette();
-      else closePalette();
-    } else if (e.key === 'Escape' && !palette.classList.contains('hidden')) {
-      closePalette();
-    }
-  });
-
-  palette.addEventListener('click', (e) => {
-    if (e.target === palette) closePalette();
-  });
-
-  function renderDefaultCommands() {
-    const commands = [
-      { icon: '🏛️', label: 'Open CodePilot Flow (Visual Architecture)', tab: 'tab-flow' },
-      { icon: '📂', label: 'Open Code Workspace & File Tree', tab: 'tab-code' },
-      { icon: '🤖', label: 'Open AI Assistant', tab: 'tab-ai' },
-      { icon: '📋', label: 'Open Tasks & Kanban Board', tab: 'tab-tasks' },
-      { icon: '📝', label: 'Open Project Notes & Knowledge Base', tab: 'tab-notes' },
-      { icon: '🌐', label: 'Open API Studio', tab: 'tab-api' },
-      { icon: '🗄️', label: 'Open Database Studio', tab: 'tab-db' },
-      { icon: '🔍', label: 'View Codebase Security & Findings', tab: 'tab-findings' }
-    ];
-
-    results.innerHTML = commands
-      .map(
-        (cmd) => `
-        <div class="palette-item" onclick="switchWorkspaceTab('${cmd.tab}'); document.querySelector('#command-palette').classList.add('hidden');">
-          <span>${cmd.icon} ${cmd.label}</span>
-          <span class="palette-kbd">Jump</span>
-        </div>
-      `
-      )
-      .join('');
-  }
-
-  input.addEventListener('input', async () => {
-    const q = input.value.trim();
-    if (!q) return renderDefaultCommands();
-    if (!state.activeProject) return;
-
-    try {
-      const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/search?q=${encodeURIComponent(q)}`);
-      results.innerHTML = '';
-      const r = data.results;
-
-      (r.files || []).forEach((f) => {
-        const item = document.createElement('div');
-        item.className = 'palette-item';
-        item.innerHTML = `<span>📄 ${escapeHtml(f.path)}</span><small class="badge">${f.language || 'file'}</small>`;
-        item.onclick = () => {
-          closePalette();
-          $('[data-tab="tab-code"]')?.click();
-          viewFile(f.path);
-        };
-        results.appendChild(item);
-      });
-
-      (r.tasks || []).forEach((t) => {
-        const item = document.createElement('div');
-        item.className = 'palette-item';
-        item.innerHTML = `<span>📋 ${escapeHtml(t.title)}</span><small class="badge">${t.status}</small>`;
-        item.onclick = () => {
-          closePalette();
-          $('[data-tab="tab-tasks"]')?.click();
-        };
-        results.appendChild(item);
-      });
-
-      (r.diagrams || []).forEach((d) => {
-        const item = document.createElement('div');
-        item.className = 'palette-item';
-        item.innerHTML = `<span>🏛️ ${escapeHtml(d.title)}</span><small class="badge">${d.diagram_type}</small>`;
-        item.onclick = () => {
-          closePalette();
-          $('[data-tab="tab-flow"]')?.click();
-          loadFlowDiagram(d.diagram_type);
-        };
-        results.appendChild(item);
-      });
-    } catch {}
-  });
-}
-
-// Workspace Navigation
-function switchWorkspaceTab(tabId) {
-  $$('.nav-tab').forEach((tab) => {
-    tab.classList.toggle('active', tab.dataset.tab === tabId);
-  });
-  $$('.tab-panel').forEach((panel) => {
-    panel.classList.toggle('hidden', panel.id !== tabId);
-    panel.classList.toggle('active', panel.id === tabId);
-  });
-  loadActiveTab();
-}
-
-function loadActiveTab() {
-  const activeTab = $('.nav-tab.active')?.dataset.tab;
-  switch (activeTab) {
-    case 'tab-flow': loadFlowDiagram(); break;
-    case 'tab-code': loadFileList(); break;
-    case 'tab-ai': loadConversations(); break;
-    case 'tab-tasks': loadTasks(); break;
-    case 'tab-notes': loadNotes(); break;
-    case 'tab-api': break;
-    case 'tab-db': loadDbStudio(); break;
-    case 'tab-findings': loadFindings(); break;
-    case 'tab-planner': loadPlans(); break;
-    case 'tab-patches': loadPatches(); break;
-    case 'tab-docker': loadDocker(); break;
-    case 'tab-deploy': loadDeployments(); break;
-    case 'tab-audit': loadAudit(); break;
-  }
-}
-
-// Findings & Diagnostics
 async function loadFindings() {
+  if (!state.activeProject) return;
   const container = $('#findings-list-container');
-  if (!container || !state.activeRevision) return;
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/findings`);
     container.innerHTML = '';
-    const filter = $('#findings-filter-select')?.value || 'all';
-    const filtered = filter === 'all' ? data.findings : data.findings.filter((f) => f.severity === filter);
-
-    if (!filtered.length) {
-      container.innerHTML = '<span class="muted" style="font-size:0.85rem;">No security findings detected in this category.</span>';
+    if (!data.findings.length) {
+      container.innerHTML = '<p class="muted">No security findings or diagnostics found in current revision.</p>';
       return;
     }
-
-    filtered.forEach((f) => {
-      const card = document.createElement('div');
-      card.className = 'finding-card';
-      card.innerHTML = `
-        <div class="finding-header">
-          <span class="badge ${f.severity === 'critical' || f.severity === 'high' ? 'badge-warning' : 'badge-idle'}">${f.severity.toUpperCase()}</span>
-          <strong>${escapeHtml(f.category)}: ${escapeHtml(f.message)}</strong>
+    data.findings.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'panel';
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="badge badge-accent">${escapeHtml(f.severity.toUpperCase())}</span>
+          <span class="muted" style="font-family:var(--font-mono); font-size:0.8rem;">${escapeHtml(f.filePath || '')}:${f.line || 1}</span>
         </div>
-        <p class="meta-text" style="margin-top:0.35rem;">Location: ${escapeHtml(f.filePath || 'Global')}${f.line ? `:${f.line}` : ''}</p>
-        ${f.evidence ? `<pre style="font-size:0.75rem; background:var(--bg-input); padding:0.4rem; border-radius:4px; margin-top:0.35rem;">${escapeHtml(f.evidence)}</pre>` : ''}
+        <p style="margin-top:0.4rem; font-weight:600;">${escapeHtml(f.message)}</p>
+        ${f.evidence ? `<pre class="flow-inspector-excerpt" style="margin-top:0.4rem;">${escapeHtml(f.evidence)}</pre>` : ''}
       `;
-      container.appendChild(card);
+      container.appendChild(div);
     });
   } catch {}
 }
 
-// Planner
+// ==========================================================================
+// Implementation Planner Workspace
+// ==========================================================================
 async function loadPlans() {
+  if (!state.activeProject) return;
   const container = $('#plans-container');
-  if (!container || !state.activeProject) return;
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/plans`);
     container.innerHTML = '';
-    data.plans.forEach((p) => {
-      const card = document.createElement('div');
-      card.className = 'plan-card';
-      card.innerHTML = `
-        <h4>${escapeHtml(p.title)} <small class="badge badge-accent">${p.complexity}</small></h4>
-        <p class="muted" style="font-size:0.85rem; margin-top:0.35rem;">${escapeHtml(p.requirement)}</p>
+    if (!data.plans.length) {
+      container.innerHTML = '<p class="muted">No implementation plans generated yet.</p>';
+      return;
+    }
+    data.plans.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'panel';
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4>${escapeHtml(p.title)}</h4>
+          <span class="badge">${escapeHtml(p.complexity)}</span>
+        </div>
+        <p class="muted" style="margin-top:0.25rem;">${escapeHtml(p.requirement)}</p>
       `;
-      container.appendChild(card);
+      container.appendChild(div);
     });
   } catch {}
 }
 
-// Patches
+// ==========================================================================
+// Patch Manager Workspace
+// ==========================================================================
 async function loadPatches() {
+  if (!state.activeProject) return;
   const container = $('#patches-container');
-  if (!container || !state.activeProject) return;
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/patches`);
     container.innerHTML = '';
-    data.patches.forEach((p) => {
-      const card = document.createElement('div');
-      card.className = 'patch-card';
-      card.innerHTML = `
-        <h4>${escapeHtml(p.title)} <small class="badge ${p.status === 'applied' ? 'badge-accent' : 'badge-idle'}">${p.status}</small></h4>
-        <pre class="diff-viewer" style="margin-top:0.5rem; max-height:200px; overflow-y:auto;">${escapeHtml(p.diff)}</pre>
+    if (!data.patches.length) {
+      container.innerHTML = '<p class="muted">No code patches recorded.</p>';
+      return;
+    }
+    data.patches.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'panel';
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h4>${escapeHtml(p.title)}</h4>
+          <span class="badge ${p.status === 'applied' ? 'badge-online' : 'badge-idle'}">${escapeHtml(p.status)}</span>
+        </div>
+        <pre class="flow-inspector-excerpt" style="margin-top:0.5rem;">${escapeHtml(p.diff)}</pre>
       `;
-      container.appendChild(card);
+      container.appendChild(div);
     });
   } catch {}
 }
 
-// Docker
+// ==========================================================================
+// Docker Assistant
+// ==========================================================================
 async function loadDocker() {
-  if (!state.activeRevision) return;
+  if (!state.activeProject) return;
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/docker`);
-    $('#docker-stack-badge').textContent = `Stack: ${data.stack.primaryLanguage} (${data.stack.framework || 'standard'})`;
+    $('#docker-stack-badge').textContent = `Stack: ${data.stack.primary || 'Detected'}`;
     $('#dockerfile-preview').textContent = data.dockerfile;
     $('#compose-preview').textContent = data.dockerCompose;
   } catch {}
 }
 
-// Deployments
+// ==========================================================================
+// Deployment Center
+// ==========================================================================
 async function loadDeployments() {
   if (!state.activeProject) return;
   try {
-    const rData = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/deployment-readiness`);
-    $('#readiness-checklist').innerHTML = `
-      <div style="font-weight:700; margin-bottom:0.5rem;">Readiness Status: <span class="badge ${rData.ready ? 'badge-accent' : 'badge-warning'}">${rData.ready ? 'VERIFIED READY' : 'ACTION REQUIRED'}</span></div>
-      ${rData.checks.map((c) => `<div>${c.passed ? '✓' : '✗'} <strong>${escapeHtml(c.name)}</strong>: ${escapeHtml(c.detail)}</div>`).join('')}
-    `;
-
-    const dData = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/deployments`);
-    $('#deployments-history').innerHTML = dData.deployments.map((d) => `
-      <div class="deploy-card">
-        <div><strong>Provider: ${escapeHtml(d.provider)}</strong> · Status: <span class="badge badge-accent">${d.status}</span></div>
-        <p class="meta-text">${new Date(d.created_at).toLocaleString()}</p>
-        <pre style="font-size:0.75rem; background:var(--bg-input); padding:0.4rem; border-radius:4px; margin-top:0.35rem;">${escapeHtml(d.logs || 'No logs recorded.')}</pre>
+    const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/deployments`);
+    const container = $('#deployments-history');
+    if (!data.deployments.length) {
+      container.innerHTML = '<p class="muted">No deployments triggered yet.</p>';
+      return;
+    }
+    container.innerHTML = data.deployments.map(d => `
+      <div class="op-event-row" style="margin-bottom:0.5rem;">
+        <span class="badge ${d.status === 'success' ? 'badge-online' : 'badge-accent'}">${escapeHtml(d.status)}</span>
+        <span>${escapeHtml(d.provider)} (${escapeHtml(d.environment)})</span>
+        <span class="muted">${new Date(d.created_at).toLocaleString()}</span>
       </div>
     `).join('');
   } catch {}
 }
 
-// Audit
+// ==========================================================================
+// Audit Trail
+// ==========================================================================
 async function loadAudit() {
   try {
     const data = await api('/api/audit');
-    $('#audit-events-container').innerHTML = data.events.map((e) => `
+    $('#audit-events-container').innerHTML = data.events.map(e => `
       <div class="audit-row">
         <span>[${new Date(e.created_at).toLocaleTimeString()}] <strong>${escapeHtml(e.action)}</strong></span>
         <span>${escapeHtml(e.detail)}</span>
       </div>
     `).join('');
   } catch {}
+}
+
+// ==========================================================================
+// Global Command Palette (Ctrl+K)
+// ==========================================================================
+function initCommandPalette() {
+  const modal = $('#command-palette');
+  const input = $('#palette-search-input');
+  const resultsBox = $('#palette-results-container');
+  if (!modal || !input) return;
+
+  function togglePalette() {
+    modal.classList.toggle('hidden');
+    if (!modal.classList.contains('hidden')) {
+      input.value = '';
+      resultsBox.innerHTML = '<p class="muted" style="padding:0.75rem;">Type to search files, symbols, tasks, diagrams across current project…</p>';
+      input.focus();
+    }
+  }
+
+  $('#btn-open-palette')?.addEventListener('click', togglePalette);
+
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      togglePalette();
+    }
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+    }
+  });
+
+  input.addEventListener('input', async () => {
+    const q = input.value.trim();
+    if (!q || !state.activeProject) return;
+    try {
+      const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/search?q=${encodeURIComponent(q)}`);
+      resultsBox.innerHTML = '';
+      if (!data.results.length) {
+        resultsBox.innerHTML = '<p class="muted" style="padding:0.75rem;">No matches found.</p>';
+        return;
+      }
+      data.results.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'palette-item';
+        div.innerHTML = `
+          <span><strong>[${escapeHtml(item.type)}]</strong> ${escapeHtml(item.name)}</span>
+          <small class="muted">${escapeHtml(item.file || item.language || '')}</small>
+        `;
+        div.onclick = () => {
+          modal.classList.add('hidden');
+          if (item.type === 'file') {
+            navigateToView('view-code');
+            viewFile(item.name);
+          } else if (item.type === 'task') {
+            navigateToView('view-tasks');
+          } else if (item.type === 'diagram') {
+            navigateToView('view-flow');
+          }
+        };
+        resultsBox.appendChild(div);
+      });
+    } catch {}
+  });
 }
 
 function switchImportTab(type) {
@@ -1074,40 +1218,73 @@ window.addEventListener('DOMContentLoaded', () => {
   initDbStudio();
   loadProjects();
 
-  // Navigation tab clicks
-  $$('.nav-tab').forEach((tab) => {
-    tab.addEventListener('click', () => switchWorkspaceTab(tab.dataset.tab));
+  // Sidebar toggle
+  $('#btn-sidebar-toggle')?.addEventListener('click', () => {
+    $('#app-sidebar').classList.toggle('collapsed');
   });
 
-  // Project Creation
-  $('#project-create-form')?.addEventListener('submit', async (e) => {
+  // Sidebar links
+  $$('.sidebar-link').forEach((link) => {
+    link.addEventListener('click', () => navigateToView(link.dataset.view));
+  });
+
+  // Top project select change
+  $('#top-project-select')?.addEventListener('change', (e) => {
+    selectProject(e.target.value);
+  });
+
+  // Modal open buttons
+  $('#btn-new-project-modal')?.addEventListener('click', () => openModal('modal-create-project'));
+  $('#btn-hero-create')?.addEventListener('click', () => openModal('modal-create-project'));
+  $('#btn-launch-operation')?.addEventListener('click', () => openModal('modal-launch-operation'));
+  $('#btn-start-analysis-op')?.addEventListener('click', () => {
+    startOperation('repository-analysis', 'Full Repository Analysis & AST Parsing');
+  });
+  $('#btn-trigger-analysis-quick')?.addEventListener('click', () => {
+    startOperation('repository-analysis', 'Full Repository Analysis & AST Parsing');
+  });
+
+  // Modal Create Project Form
+  $('#project-create-modal-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = $('#new-project-name').value.trim();
+    const name = $('#modal-project-name').value.trim();
+    const description = $('#modal-project-desc').value.trim();
     if (!name) return;
     try {
       const data = await api('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, description })
       });
-      $('#new-project-name').value = '';
+      closeModal('modal-create-project');
+      $('#modal-project-name').value = '';
+      $('#modal-project-desc').value = '';
       await loadProjects();
       selectProject(data.project.id);
     } catch (err) {
-      showFeedback('#project-feedback', err.message, true);
+      alert(`Failed to create project: ${err.message}`);
     }
   });
 
+  // Modal Launch Operation Form
+  $('#operation-launch-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const type = $('#op-select-type').value;
+    const name = $('#op-custom-name').value.trim();
+    if (!name) return;
+    startOperation(type, name);
+  });
+
   // Project Deletion
-  $('#btn-delete-project')?.addEventListener('click', async () => {
+  $('#btn-delete-project-overview')?.addEventListener('click', async () => {
     if (!state.activeProject) return;
     if (!confirm('Are you sure you want to delete this active project?')) return;
     try {
       await api(`/api/projects/${encodeURIComponent(state.activeProject)}`, { method: 'DELETE' });
       state.activeProject = null;
       state.activeRevision = null;
-      $('#workspace-container').classList.add('hidden');
       await loadProjects();
+      selectProject(state.projects.length ? state.projects[0].id : null);
     } catch (err) {
       alert(`Failed to delete project: ${err.message}`);
     }
@@ -1154,45 +1331,49 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Refresh
-  $('#btn-refresh')?.addEventListener('click', () => {
-    if (state.activeProject) selectProject(state.activeProject);
-  });
-
-  // File search filter
-  $('#file-search-input')?.addEventListener('input', () => loadFileList());
-
-  // Task creation modal
-  $('#btn-create-task-modal')?.addEventListener('click', async () => {
-    const title = prompt('Task title:');
-    if (!title) return;
-    const desc = prompt('Task description (optional):') || '';
-    const pri = prompt('Priority (low, medium, high, urgent):', 'medium') || 'medium';
+  // Planner Form
+  $('#planner-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const reqText = $('#planner-req-input').value.trim();
+    if (!reqText || !state.activeProject) return;
     try {
-      await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks`, {
+      await api(`/api/projects/${encodeURIComponent(state.activeProject)}/plans`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: desc, priority: pri })
+        body: JSON.stringify({ requirement: reqText })
       });
-      loadTasks();
+      $('#planner-req-input').value = '';
+      loadPlans();
     } catch (err) { alert(err.message); }
   });
 
-  // AI Task generation
+  // Test Execution
+  $('#btn-run-tests')?.addEventListener('click', async () => {
+    if (!state.activeProject) return;
+    const box = $('#test-output-box');
+    box.textContent = 'Executing tests in isolated environment…';
+    try {
+      const res = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tests/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'npm test' })
+      });
+      box.textContent = `[Status: ${res.result.status.toUpperCase()} (${res.result.durationMs}ms)]\n\n${res.result.output}`;
+    } catch (err) {
+      box.textContent = `Test run error: ${err.message}`;
+    }
+  });
+
+  // Task generation
   $('#btn-generate-ai-tasks')?.addEventListener('click', async () => {
-    const req = prompt('Describe requirements or goal to generate tasks for:', 'Improve test coverage, fix high severity findings, and document APIs');
-    if (!req) return;
+    if (!state.activeProject) return;
     try {
-      await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requirement: req })
-      });
+      await api(`/api/projects/${encodeURIComponent(state.activeProject)}/tasks/generate`, { method: 'POST' });
       loadTasks();
     } catch (err) { alert(err.message); }
   });
 
-  // Notes save & delete
+  // Notes actions
   $('#btn-create-note')?.addEventListener('click', () => {
     state.activeNote = null;
     $('#note-title-input').value = '';

@@ -3,115 +3,317 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="CodePilot AI — Unified AI Development, Visual Programming, and Productivity Platform">
-    <title>CodePilot AI — Autonomous Engineering &amp; Visual Programming Platform</title>
+    <meta name="description" content="CodePilot AI — Professional AI Software Engineering & Architecture Platform">
+    <title>CodePilot AI — Professional AI Engineering Platform</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
-  <body>
-    <a class="skip-link" href="#workspace-content">Skip to workspace content</a>
+  <body class="app-layout">
+    <a class="skip-link" href="#main-view">Skip to main content</a>
 
-    <!-- Application Header -->
+    <!-- Top Navigation Header -->
     <header class="app-header">
-      <div class="header-brand">
-        <div class="logo-mark">CP</div>
-        <div>
-          <h1 class="brand-title">CodePilot AI</h1>
-          <p class="brand-subtitle">AI Development, Visual Programming &amp; Productivity Platform</p>
+      <div class="header-left">
+        <button id="btn-sidebar-toggle" type="button" class="icon-btn" aria-label="Toggle navigation sidebar" title="Toggle navigation">
+          ☰
+        </button>
+        <div class="brand">
+          <span class="brand-logo">CP</span>
+          <span class="brand-name">CodePilot AI</span>
+        </div>
+        <div class="breadcrumbs" aria-label="Breadcrumb navigation">
+          <span id="bc-root" class="breadcrumb-item">Projects</span>
+          <span class="breadcrumb-separator">/</span>
+          <span id="bc-project" class="breadcrumb-item font-semibold">Select Project</span>
+          <span class="breadcrumb-separator">/</span>
+          <span id="bc-page" class="breadcrumb-item active">Overview</span>
         </div>
       </div>
-      <div class="header-status">
-        <button id="btn-open-palette" type="button" class="btn btn-secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" aria-label="Open global search">
-          🔍 Search &amp; Actions <span class="palette-kbd">Ctrl+K</span>
+
+      <div class="header-center">
+        <!-- Project Selector in Top Bar -->
+        <div class="project-selector-wrap">
+          <select id="top-project-select" aria-label="Current Project">
+            <option value="">Select a project…</option>
+          </select>
+          <button id="btn-new-project-modal" type="button" class="btn btn-primary btn-sm">+ New Project</button>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Active Operation Indicator -->
+        <div id="active-op-indicator" class="active-op-pill hidden" role="status" title="Active background operation">
+          <span class="spinner-small"></span>
+          <span id="active-op-label">Running Analysis…</span>
+        </div>
+
+        <button id="btn-open-palette" type="button" class="btn btn-secondary btn-sm" aria-label="Open global search">
+          🔍 Search &amp; Actions <kbd>Ctrl+K</kbd>
         </button>
-        <button id="btn-theme-toggle" type="button" class="btn btn-secondary" style="padding:0.35rem 0.6rem; font-size:0.85rem;" title="Toggle Dark/Light Theme" aria-label="Toggle theme">
-          ☀️ / 🌙
+        <button id="btn-theme-toggle" type="button" class="icon-btn" title="Toggle Theme" aria-label="Toggle theme">
+          🌓
         </button>
         <span id="service-pill" class="pill pill-idle" role="status">Connecting…</span>
       </div>
     </header>
 
-    <main class="app-main">
-      <!-- Project Selection & Creation Bar -->
-      <section class="panel project-bar" aria-labelledby="projects-heading">
-        <div class="project-bar-header">
-          <h2 id="projects-heading" class="panel-title">Active Projects</h2>
-          <form id="project-create-form" class="inline-form">
-            <input id="new-project-name" name="name" type="text" maxlength="100" required placeholder="New project name (e.g. CodePilot Service)">
-            <button type="submit" class="btn btn-primary">Create Project</button>
-          </form>
-        </div>
-        <div id="projects-container" class="project-chips" role="tablist" aria-label="Projects"></div>
-        <div id="project-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
-      </section>
-
-      <!-- Workspace Container (Displayed when project selected) -->
-      <section id="workspace-container" class="workspace-area hidden">
-        <!-- Project Header & Revision Status -->
-        <div class="workspace-banner">
-          <div>
-            <span class="badge badge-accent">ACTIVE PROJECT</span>
-            <h2 id="active-project-name" class="active-title">—</h2>
-            <p id="active-revision-info" class="meta-text">No revision imported yet.</p>
-          </div>
-          <div class="banner-actions">
-            <a id="btn-export-report" class="btn btn-secondary hidden" href="#" download>Export Architecture Report (.md)</a>
-            <button id="btn-delete-project" type="button" class="btn btn-secondary" style="color:var(--accent-rose);">Delete Project</button>
-            <button id="btn-refresh" type="button" class="btn btn-secondary">Refresh</button>
-          </div>
-        </div>
-
-        <!-- Ingestion / Import Panel -->
-        <section class="panel import-panel" aria-labelledby="import-heading">
-          <h3 id="import-heading" class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
-          <p class="panel-desc">Import codebase as immutable data. Zip Slip, symlinks, and zip bombs are strictly validated and blocked. Untrusted code is never executed by the API server.</p>
-          
-          <div class="import-tabs">
-            <button type="button" id="tab-btn-zip" class="tab-btn active" onclick="switchImportTab('zip')">Upload ZIP Archive</button>
-            <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">Remote URL (SSRF Protected)</button>
+    <div class="app-body">
+      <!-- Collapsible Left Sidebar Navigation -->
+      <aside id="app-sidebar" class="app-sidebar" aria-label="Primary Navigation">
+        <nav class="sidebar-nav">
+          <!-- Main Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">MAIN</span>
+            <button type="button" class="sidebar-link active" data-view="view-overview">
+              <span class="nav-icon">📊</span>
+              <span class="nav-label">Project Overview</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-operations">
+              <span class="nav-icon">⚡</span>
+              <span class="nav-label">Operations &amp; Jobs</span>
+              <span id="sidebar-op-badge" class="nav-badge hidden">0</span>
+            </button>
           </div>
 
-          <form id="zip-import-form" class="import-form">
-            <div class="form-row">
-              <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive">
-              <button type="submit" class="btn btn-accent">Validate &amp; Ingest ZIP</button>
-            </div>
-          </form>
+          <!-- Understand Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">UNDERSTAND</span>
+            <button type="button" class="sidebar-link" data-view="view-flow">
+              <span class="nav-icon">🏛️</span>
+              <span class="nav-label">CodePilot Flow</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-code">
+              <span class="nav-icon">📂</span>
+              <span class="nav-label">Repository Explorer</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-analysis">
+              <span class="nav-icon">🔍</span>
+              <span class="nav-label">Repository Analysis</span>
+            </button>
+          </div>
 
-          <form id="url-import-form" class="import-form hidden">
-            <div class="form-row">
-              <input id="remote-url-input" type="url" placeholder="https://github.com/org/repo/archive/refs/heads/main.zip" aria-label="Remote archive URL">
-              <button type="submit" class="btn btn-accent">Fetch &amp; Ingest (SSRF-Safe)</button>
-            </div>
-          </form>
+          <!-- Build Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">BUILD</span>
+            <button type="button" class="sidebar-link" data-view="view-ai">
+              <span class="nav-icon">🤖</span>
+              <span class="nav-label">AI Assistant</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-planner">
+              <span class="nav-icon">📝</span>
+              <span class="nav-label">Implementation Planner</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-patches">
+              <span class="nav-icon">🔄</span>
+              <span class="nav-label">Patch Manager</span>
+            </button>
+          </div>
 
-          <div id="import-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
-        </section>
+          <!-- Verify Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">VERIFY</span>
+            <button type="button" class="sidebar-link" data-view="view-findings">
+              <span class="nav-icon">🛡️</span>
+              <span class="nav-label">Security Center</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-tests">
+              <span class="nav-icon">🧪</span>
+              <span class="nav-label">Testing &amp; Debugging</span>
+            </button>
+          </div>
 
-        <!-- Stats Overview Cards -->
-        <section id="stats-overview" class="stats-grid" aria-label="Repository Statistics"></section>
+          <!-- Data & APIs Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">DATA &amp; APIS</span>
+            <button type="button" class="sidebar-link" data-view="view-api">
+              <span class="nav-icon">🌐</span>
+              <span class="nav-label">API Studio</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-db">
+              <span class="nav-icon">💾</span>
+              <span class="nav-label">Database Studio</span>
+            </button>
+          </div>
 
-        <!-- Feature Navigation Tabs -->
-        <nav class="feature-nav" role="tablist" aria-label="Workspace features">
-          <button type="button" class="nav-tab active" data-tab="tab-flow">CodePilot Flow</button>
-          <button type="button" class="nav-tab" data-tab="tab-code">Code Workspace</button>
-          <button type="button" class="nav-tab" data-tab="tab-ai">AI Assistant</button>
-          <button type="button" class="nav-tab" data-tab="tab-tasks">Tasks &amp; Kanban</button>
-          <button type="button" class="nav-tab" data-tab="tab-notes">Notes &amp; Knowledge</button>
-          <button type="button" class="nav-tab" data-tab="tab-api">API Studio</button>
-          <button type="button" class="nav-tab" data-tab="tab-db">Database Studio</button>
-          <button type="button" class="nav-tab" data-tab="tab-findings">Findings &amp; Security</button>
-          <button type="button" class="nav-tab" data-tab="tab-planner">Implementation Planner</button>
-          <button type="button" class="nav-tab" data-tab="tab-patches">Patches &amp; Diffs</button>
-          <button type="button" class="nav-tab" data-tab="tab-docker">Docker Assistant</button>
-          <button type="button" class="nav-tab" data-tab="tab-deploy">DevOps &amp; Cloud</button>
-          <button type="button" class="nav-tab" data-tab="tab-audit">Audit Trail</button>
+          <!-- Ship Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">SHIP</span>
+            <button type="button" class="sidebar-link" data-view="view-docker">
+              <span class="nav-icon">🐳</span>
+              <span class="nav-label">Docker &amp; Containers</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-deploy">
+              <span class="nav-icon">🚀</span>
+              <span class="nav-label">Deployment Center</span>
+            </button>
+          </div>
+
+          <!-- Productivity Section -->
+          <div class="nav-group">
+            <span class="nav-group-title">PRODUCTIVITY</span>
+            <button type="button" class="sidebar-link" data-view="view-tasks">
+              <span class="nav-icon">📋</span>
+              <span class="nav-label">Tasks &amp; Kanban</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-notes">
+              <span class="nav-icon">📓</span>
+              <span class="nav-label">Knowledge Base</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-audit">
+              <span class="nav-icon">📜</span>
+              <span class="nav-label">Audit History</span>
+            </button>
+          </div>
         </nav>
+      </aside>
 
-        <div id="workspace-content" class="tab-contents">
+      <!-- Main Dedicated Workspace Area -->
+      <main id="main-view" class="main-content" role="main">
+        <!-- Banner Message when No Project Selected -->
+        <div id="no-project-banner" class="hero-onboarding">
+          <div class="hero-content">
+            <h2>Welcome to CodePilot AI</h2>
+            <p>An intelligent, visual AI development platform designed for understanding, architecting, building, testing, and shipping production software.</p>
+            <div class="hero-actions">
+              <button id="btn-hero-create" type="button" class="btn btn-primary">+ Create New Project</button>
+              <button id="btn-hero-sample" type="button" class="btn btn-secondary">Explore Sample Project</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="active-project-views" class="hidden">
           <!-- ==========================================
-               Tab 1: Signature Feature — CodePilot Flow
+               View 1: Project Overview & Health
                ========================================== -->
-          <div id="tab-flow" class="tab-panel active">
+          <section id="view-overview" class="page-view active">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">PROJECT OVERVIEW</span>
+                <h2 id="overview-project-title" class="page-title">—</h2>
+                <p id="overview-revision-meta" class="meta-text">No revision imported yet.</p>
+              </div>
+              <div class="page-header-actions">
+                <button id="btn-trigger-analysis-quick" type="button" class="btn btn-accent">⚡ Run Analysis</button>
+                <a id="btn-export-report-overview" class="btn btn-secondary hidden" href="#" download>Export Architecture (.md)</a>
+                <button id="btn-delete-project-overview" type="button" class="btn btn-secondary text-danger">Delete Project</button>
+              </div>
+            </div>
+
+            <!-- Repository Ingestion Card -->
+            <div class="panel">
+              <h3 class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
+              <p class="panel-desc">Import codebase as immutable data. Zip Slip, symlinks, and zip bombs are strictly validated and blocked. Untrusted code is never executed by the API server.</p>
+              <div class="import-tabs">
+                <button type="button" id="tab-btn-zip" class="tab-btn active" onclick="switchImportTab('zip')">Upload ZIP Archive</button>
+                <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">Remote URL (SSRF Protected)</button>
+              </div>
+              <form id="zip-import-form" class="import-form">
+                <div class="form-row">
+                  <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive">
+                  <button type="submit" class="btn btn-primary">Validate &amp; Ingest ZIP</button>
+                </div>
+              </form>
+              <form id="url-import-form" class="import-form hidden">
+                <div class="form-row">
+                  <input id="remote-url-input" type="url" placeholder="https://github.com/org/repo/archive/refs/heads/main.zip" aria-label="Remote archive URL">
+                  <button type="submit" class="btn btn-primary">Fetch &amp; Ingest (SSRF-Safe)</button>
+                </div>
+              </form>
+              <div id="import-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
+            </div>
+
+            <!-- Stats Overview Grid -->
+            <div id="stats-overview" class="stats-grid" aria-label="Repository Statistics"></div>
+
+            <!-- Quick Action Hub Cards -->
+            <div class="grid-2-col">
+              <div class="panel">
+                <h4 class="subheading">Suggested Next Actions</h4>
+                <div class="quick-actions-list">
+                  <button type="button" class="quick-action-item" onclick="navigateToView('view-flow')">
+                    <span class="qa-icon">🏛️</span>
+                    <div>
+                      <strong>Explore CodePilot Flow</strong>
+                      <p class="muted">Visualize 7 architectural diagrams computed directly from AST symbols.</p>
+                    </div>
+                  </button>
+                  <button type="button" class="quick-action-item" onclick="navigateToView('view-ai')">
+                    <span class="qa-icon">🤖</span>
+                    <div>
+                      <strong>Ask AI About Codebase</strong>
+                      <p class="muted">Evidence-grounded code QA citing exact file paths and source lines.</p>
+                    </div>
+                  </button>
+                  <button type="button" class="quick-action-item" onclick="navigateToView('view-findings')">
+                    <span class="qa-icon">🛡️</span>
+                    <div>
+                      <strong>Review Security Findings</strong>
+                      <p class="muted">Examine exposed credentials, unpinned dependencies, and Docker configs.</p>
+                    </div>
+                  </button>
+                  <button type="button" class="quick-action-item" onclick="navigateToView('view-api')">
+                    <span class="qa-icon">🌐</span>
+                    <div>
+                      <strong>Test APIs in Studio</strong>
+                      <p class="muted">Send HTTP requests with built-in SSRF protection and response inspection.</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h4 class="subheading">Recent Operations &amp; Audits</h4>
+                <div id="overview-recent-ops" class="recent-ops-preview">
+                  <p class="muted">No recent operations executed.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 2: Operations & Background Jobs
+               ========================================== -->
+          <section id="view-operations" class="page-view hidden">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">ENGINEERING OPERATIONS</span>
+                <h2 class="page-title">Operations &amp; Background Jobs</h2>
+                <p class="meta-text">Inspect real operation lifecycles, execution stages, and telemetry.</p>
+              </div>
+              <button id="btn-launch-operation" type="button" class="btn btn-primary">+ Launch New Operation</button>
+            </div>
+
+            <div class="panel">
+              <h3 class="panel-subtitle">Operation History</h3>
+              <div id="operations-list" class="operations-table-wrap">
+                <p class="muted">No operations recorded yet.</p>
+              </div>
+            </div>
+
+            <!-- Active Operation Detail Modal / Box -->
+            <div id="operation-detail-panel" class="panel hidden">
+              <div class="panel-header-split">
+                <div>
+                  <span id="op-detail-badge" class="badge badge-accent">Running</span>
+                  <h3 id="op-detail-title" class="panel-subtitle">Repository Analysis</h3>
+                  <p id="op-detail-meta" class="meta-text">Started just now</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('#operation-detail-panel').classList.add('hidden')">Close Details</button>
+              </div>
+
+              <div class="progress-bar-container" style="margin: 1rem 0;">
+                <div id="op-detail-progress-fill" class="progress-fill" style="width: 0%;"></div>
+              </div>
+              <p id="op-detail-summary" class="meta-text">Processing...</p>
+
+              <h4 class="subheading" style="margin-top:1rem;">Lifecycle Events &amp; Stages</h4>
+              <div id="op-detail-events" class="op-events-list"></div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 3: Signature Feature — CodePilot Flow
+               ========================================== -->
+          <section id="view-flow" class="page-view hidden">
             <div class="panel flow-container">
               <div class="flow-toolbar">
                 <div class="flow-types-bar">
@@ -183,12 +385,12 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 2: Code Explorer Workspace
+               View 4: Repository Explorer & Code
                ========================================== -->
-          <div id="tab-code" class="tab-panel hidden">
+          <section id="view-code" class="page-view hidden">
             <div class="split-view">
               <div class="panel side-list">
                 <h3 class="panel-subtitle">Repository Files</h3>
@@ -211,12 +413,33 @@
                 <div id="code-ai-feedback" class="feedback-msg" style="white-space:pre-wrap;"></div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 3: AI Assistant & Multi-Turn Chat
+               View 5: Dedicated Repository Analysis
                ========================================== -->
-          <div id="tab-ai" class="tab-panel hidden">
+          <section id="view-analysis" class="page-view hidden">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">REPOSITORY INTELLIGENCE</span>
+                <h2 class="page-title">Repository Analysis &amp; Report</h2>
+                <p class="meta-text">Configure, trigger, and inspect deterministic multi-layer architecture analysis.</p>
+              </div>
+              <button id="btn-start-analysis-op" type="button" class="btn btn-accent">⚡ Start Full Analysis</button>
+            </div>
+
+            <div class="panel">
+              <h3 class="panel-subtitle">Full Architecture Specification Report</h3>
+              <div id="analysis-report-container" class="report-content">
+                <p class="muted">Loading architecture report…</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 6: AI Assistant Workspace
+               ========================================== -->
+          <section id="view-ai" class="page-view hidden">
             <div class="panel">
               <div class="panel-header-split">
                 <div>
@@ -250,89 +473,79 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 4: Tasks & Kanban Workspace
+               View 7: Implementation Planner
                ========================================== -->
-          <div id="tab-tasks" class="tab-panel hidden">
+          <section id="view-planner" class="page-view hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Implementation Planner</h3>
+              <p class="panel-desc">Convert feature requests into ordered tasks, acceptance criteria, and complexity assessments.</p>
+              <form id="planner-form" class="planner-input-form">
+                <textarea id="planner-req-input" rows="3" required placeholder="Describe feature request or bugfix (e.g. Add webhook signature validation for Stripe)"></textarea>
+                <button type="submit" class="btn btn-primary">Generate Task Plan</button>
+              </form>
+              <div id="plans-container" class="plans-list"></div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 8: Patch Manager
+               ========================================== -->
+          <section id="view-patches" class="page-view hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Reviewable Patches &amp; Rollbacks</h3>
+              <p class="panel-desc">Unified diffs with conflict detection and instant one-click rollback checkpoints.</p>
+              <div id="patches-container" class="patches-list"></div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 9: Security Center
+               ========================================== -->
+          <section id="view-findings" class="page-view hidden">
             <div class="panel">
               <div class="panel-header-split">
                 <div>
-                  <h3 class="panel-subtitle">Development Tasks &amp; Kanban</h3>
-                  <p class="panel-desc">Organize feature development, bugfixes, refactors, and AI-generated action items.</p>
+                  <h3 class="panel-subtitle">Codebase Diagnostics &amp; Security Audits</h3>
+                  <p class="panel-desc">Deterministic scans: credential exposure, unpinned Docker images, maintenance markers, missing manifests.</p>
                 </div>
-                <div style="display:flex; gap:0.5rem;">
-                  <button id="btn-generate-ai-tasks" type="button" class="btn btn-secondary">🤖 AI Suggest Tasks</button>
-                  <button id="btn-create-task-modal" type="button" class="btn btn-primary">+ New Task</button>
-                </div>
-              </div>
-
-              <div class="kanban-board">
-                <div class="kanban-col" id="col-todo">
-                  <div class="kanban-col-header"><span>📋 To Do</span> <span id="count-todo" class="badge">0</span></div>
-                  <div id="tasks-list-todo" class="task-items-container"></div>
-                </div>
-                <div class="kanban-col" id="col-in-progress">
-                  <div class="kanban-col-header"><span>⚙️ In Progress</span> <span id="count-in-progress" class="badge">0</span></div>
-                  <div id="tasks-list-in-progress" class="task-items-container"></div>
-                </div>
-                <div class="kanban-col" id="col-in-review">
-                  <div class="kanban-col-header"><span>🔍 In Review</span> <span id="count-in-review" class="badge">0</span></div>
-                  <div id="tasks-list-in-review" class="task-items-container"></div>
-                </div>
-                <div class="kanban-col" id="col-done">
-                  <div class="kanban-col-header"><span>✅ Done</span> <span id="count-done" class="badge">0</span></div>
-                  <div id="tasks-list-done" class="task-items-container"></div>
+                <div class="findings-filter">
+                  <select id="findings-filter-select" aria-label="Filter findings by severity">
+                    <option value="all">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                    <option value="info">Info</option>
+                  </select>
                 </div>
               </div>
+              <div id="findings-list-container" class="findings-list"></div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 5: Notes & Knowledge Base Workspace
+               View 10: Testing & Debugging
                ========================================== -->
-          <div id="tab-notes" class="tab-panel hidden">
+          <section id="view-tests" class="page-view hidden">
             <div class="panel">
-              <div class="panel-header-split">
+              <div class="page-header">
                 <div>
-                  <h3 class="panel-subtitle">Project Notes &amp; Knowledge Base</h3>
-                  <p class="panel-desc">Document architectural decisions, meeting takeaways, technical research, and setup guides.</p>
+                  <h3 class="panel-subtitle">Automated Test Execution</h3>
+                  <p class="panel-desc">Execute test commands with duration metrics, failure traces, and CI telemetry.</p>
                 </div>
-                <button id="btn-create-note" type="button" class="btn btn-primary">+ New Note</button>
+                <button id="btn-run-tests" type="button" class="btn btn-primary">Run npm test</button>
               </div>
-
-              <div class="notes-grid">
-                <div class="notes-sidebar">
-                  <input id="notes-search-input" type="search" placeholder="Search notes…">
-                  <div id="notes-list-container" style="display:flex; flex-direction:column; gap:0.4rem; max-height:460px; overflow-y:auto;"></div>
-                </div>
-                <div class="note-editor-panel">
-                  <input id="note-title-input" type="text" placeholder="Note Title (e.g. Architecture Decision Record 001)" style="font-size:1.1rem; font-weight:700;">
-                  <div style="display:flex; gap:0.5rem;">
-                    <select id="note-category-select" style="width:160px;">
-                      <option value="general">General</option>
-                      <option value="architecture">Architecture</option>
-                      <option value="meeting">Meeting</option>
-                      <option value="plan">Plan</option>
-                      <option value="research">Research</option>
-                    </select>
-                    <input id="note-tags-input" type="text" placeholder="Tags (comma separated)">
-                  </div>
-                  <textarea id="note-content-input" rows="12" placeholder="Write documentation or notes in Markdown…"></textarea>
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <button id="btn-save-note" type="button" class="btn btn-primary">Save Note</button>
-                    <button id="btn-delete-note" type="button" class="btn btn-secondary" style="color:var(--accent-rose);">Delete Note</button>
-                  </div>
-                </div>
-              </div>
+              <pre id="test-output-box" class="code-box" style="min-height:220px; max-height:400px; overflow-y:auto;">Click 'Run npm test' to execute test suite.</pre>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 6: API Studio Workspace
+               View 11: API Studio
                ========================================== -->
-          <div id="tab-api" class="tab-panel hidden">
+          <section id="view-api" class="page-view hidden">
             <div class="panel">
               <h3 class="panel-subtitle">API Studio &amp; Request Runner</h3>
               <p class="panel-desc">Test, explore, and document HTTP endpoints. SSRF protection prevents unauthorized internal network probing.</p>
@@ -366,12 +579,12 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 7: Database Studio Workspace
+               View 12: Database Studio
                ========================================== -->
-          <div id="tab-db" class="tab-panel hidden">
+          <section id="view-db" class="page-view hidden">
             <div class="panel">
               <h3 class="panel-subtitle">Database Studio &amp; SQL Explorer</h3>
               <p class="panel-desc">Inspect live schema tables and execute read/audit SQL queries with duration telemetry.</p>
@@ -394,63 +607,12 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 8: Findings & Security
+               View 13: Docker & Containers
                ========================================== -->
-          <div id="tab-findings" class="tab-panel hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Codebase Diagnostics &amp; Security Audits</h3>
-                  <p class="panel-desc">Deterministic scans: credential exposure, unpinned Docker images, maintenance markers, missing manifests.</p>
-                </div>
-                <div class="findings-filter">
-                  <select id="findings-filter-select" aria-label="Filter findings by severity">
-                    <option value="all">All Severities</option>
-                    <option value="critical">Critical</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                    <option value="info">Info</option>
-                  </select>
-                </div>
-              </div>
-              <div id="findings-list-container" class="findings-list"></div>
-            </div>
-          </div>
-
-          <!-- ==========================================
-               Tab 9: Implementation Planner
-               ========================================== -->
-          <div id="tab-planner" class="tab-panel hidden">
-            <div class="panel">
-              <h3 class="panel-subtitle">Implementation Planner</h3>
-              <p class="panel-desc">Convert feature requests into ordered tasks, acceptance criteria, and complexity assessments.</p>
-              <form id="planner-form" class="planner-input-form">
-                <textarea id="planner-req-input" rows="3" required placeholder="Describe feature request or bugfix (e.g. Add webhook signature validation for Stripe)"></textarea>
-                <button type="submit" class="btn btn-primary">Generate Task Plan</button>
-              </form>
-              <div id="plans-container" class="plans-list"></div>
-            </div>
-          </div>
-
-          <!-- ==========================================
-               Tab 10: Patches & Git Diffs
-               ========================================== -->
-          <div id="tab-patches" class="tab-panel hidden">
-            <div class="panel">
-              <h3 class="panel-subtitle">Reviewable Patches &amp; Rollbacks</h3>
-              <p class="panel-desc">Unified diffs with conflict detection and instant one-click rollback checkpoints.</p>
-              <div id="patches-container" class="patches-list"></div>
-            </div>
-          </div>
-
-          <!-- ==========================================
-               Tab 11: Docker Assistant
-               ========================================== -->
-          <div id="tab-docker" class="tab-panel hidden">
+          <section id="view-docker" class="page-view hidden">
             <div class="panel">
               <div class="panel-header-split">
                 <div>
@@ -470,12 +632,12 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 12: DevOps & Cloud Deployment
+               View 14: Deployment Center
                ========================================== -->
-          <div id="tab-deploy" class="tab-panel hidden">
+          <section id="view-deploy" class="page-view hidden">
             <div class="panel">
               <h3 class="panel-subtitle">Cloud Deployment Readiness &amp; Live Verification</h3>
               <p class="panel-desc">Evidence-based deployment gating. Live health checks are verified against real running endpoints.</p>
@@ -499,21 +661,142 @@
               <h4 class="subheading" style="margin-top:1.5rem;">Deployment History &amp; Logs</h4>
               <div id="deployments-history" class="deploy-history-list"></div>
             </div>
-          </div>
+          </section>
 
           <!-- ==========================================
-               Tab 13: Audit Trail
+               View 15: Tasks & Kanban
                ========================================== -->
-          <div id="tab-audit" class="tab-panel hidden">
+          <section id="view-tasks" class="page-view hidden">
+            <div class="panel">
+              <div class="panel-header-split">
+                <div>
+                  <h3 class="panel-subtitle">Development Tasks &amp; Kanban</h3>
+                  <p class="panel-desc">Organize feature development, bugfixes, refactors, and AI-generated action items.</p>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                  <button id="btn-generate-ai-tasks" type="button" class="btn btn-secondary">🤖 AI Suggest Tasks</button>
+                  <button id="btn-create-task-modal" type="button" class="btn btn-primary">+ New Task</button>
+                </div>
+              </div>
+
+              <div class="kanban-board">
+                <div class="kanban-col" id="col-todo">
+                  <div class="kanban-col-header"><span>📋 To Do</span> <span id="count-todo" class="badge">0</span></div>
+                  <div id="tasks-list-todo" class="task-items-container"></div>
+                </div>
+                <div class="kanban-col" id="col-in-progress">
+                  <div class="kanban-col-header"><span>⚙️ In Progress</span> <span id="count-in-progress" class="badge">0</span></div>
+                  <div id="tasks-list-in-progress" class="task-items-container"></div>
+                </div>
+                <div class="kanban-col" id="col-in-review">
+                  <div class="kanban-col-header"><span>🔍 In Review</span> <span id="count-in-review" class="badge">0</span></div>
+                  <div id="tasks-list-in-review" class="task-items-container"></div>
+                </div>
+                <div class="kanban-col" id="col-done">
+                  <div class="kanban-col-header"><span>✅ Done</span> <span id="count-done" class="badge">0</span></div>
+                  <div id="tasks-list-done" class="task-items-container"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 16: Knowledge Base
+               ========================================== -->
+          <section id="view-notes" class="page-view hidden">
+            <div class="panel">
+              <div class="panel-header-split">
+                <div>
+                  <h3 class="panel-subtitle">Project Notes &amp; Knowledge Base</h3>
+                  <p class="panel-desc">Document architectural decisions, meeting takeaways, technical research, and setup guides.</p>
+                </div>
+                <button id="btn-create-note" type="button" class="btn btn-primary">+ New Note</button>
+              </div>
+
+              <div class="notes-grid">
+                <div class="notes-sidebar">
+                  <input id="notes-search-input" type="search" placeholder="Search notes…">
+                  <div id="notes-list-container" style="display:flex; flex-direction:column; gap:0.4rem; max-height:460px; overflow-y:auto;"></div>
+                </div>
+                <div class="note-editor-panel">
+                  <input id="note-title-input" type="text" placeholder="Note Title (e.g. Architecture Decision Record 001)" style="font-size:1.1rem; font-weight:700;">
+                  <div style="display:flex; gap:0.5rem;">
+                    <select id="note-category-select" style="width:160px;">
+                      <option value="general">General</option>
+                      <option value="architecture">Architecture</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="plan">Plan</option>
+                      <option value="research">Research</option>
+                    </select>
+                    <input id="note-tags-input" type="text" placeholder="Tags (comma separated)">
+                  </div>
+                  <textarea id="note-content-input" rows="12" placeholder="Write documentation or notes in Markdown…"></textarea>
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button id="btn-save-note" type="button" class="btn btn-primary">Save Note</button>
+                    <button id="btn-delete-note" type="button" class="btn btn-secondary text-danger">Delete Note</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 17: Audit Trail
+               ========================================== -->
+          <section id="view-audit" class="page-view hidden">
             <div class="panel">
               <h3 class="panel-subtitle">Immutable Security Audit Trail</h3>
               <p class="panel-desc">All project creation, revision imports, patch modifications, suppressions, and deployments are tracked.</p>
               <div id="audit-events-container" class="audit-list"></div>
             </div>
-          </div>
+          </section>
         </div>
-      </section>
-    </main>
+      </main>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="modal-create-project" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Create Project">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Create New Project</h3>
+          <button type="button" class="icon-btn" onclick="closeModal('modal-create-project')">✕</button>
+        </div>
+        <form id="project-create-modal-form">
+          <label for="modal-project-name" class="form-label">Project Name</label>
+          <input id="modal-project-name" type="text" required maxlength="100" placeholder="e.g. E-Commerce Backend">
+          <label for="modal-project-desc" class="form-label" style="margin-top:0.75rem;">Description (optional)</label>
+          <textarea id="modal-project-desc" rows="2" placeholder="Short description of this application…"></textarea>
+          <div class="modal-actions" style="margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-project')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Project</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Launch Operation Modal -->
+    <div id="modal-launch-operation" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Launch Operation">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Launch Engineering Operation</h3>
+          <button type="button" class="icon-btn" onclick="closeModal('modal-launch-operation')">✕</button>
+        </div>
+        <form id="operation-launch-form">
+          <label for="op-select-type" class="form-label">Operation Type</label>
+          <select id="op-select-type" required>
+            <option value="repository-analysis">Repository Analysis (AST &amp; Dependency Graph)</option>
+            <option value="security-scan">Security &amp; Vulnerability Scan</option>
+            <option value="generate-flow">Generate CodePilot Flow Topology</option>
+          </select>
+          <label for="op-custom-name" class="form-label" style="margin-top:0.75rem;">Operation Label</label>
+          <input id="op-custom-name" type="text" required placeholder="e.g. Main Ingress Analysis">
+          <div class="modal-actions" style="margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-launch-operation')">Cancel</button>
+            <button type="submit" class="btn btn-accent">Start Operation</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- Global Command Palette Modal (Ctrl+K) -->
     <div id="command-palette" class="palette-overlay hidden" role="dialog" aria-modal="true" aria-label="Command Palette">
@@ -521,17 +804,15 @@
         <div class="palette-input-wrap">
           <input id="palette-search-input" class="palette-input" type="search" placeholder="Type a command or search files, symbols, tasks, diagrams… (Esc to exit)">
         </div>
-        <div id="palette-results-container" class="palette-results">
-          <!-- Dynamic Results -->
-        </div>
+        <div id="palette-results-container" class="palette-results"></div>
       </div>
     </div>
 
     <!-- Footer -->
     <footer class="app-footer">
       <div class="footer-inner">
-        <span>CodePilot AI v0.2.0 · Autonomous AI Development &amp; Visual Programming Platform</span>
-        <span>Isolated Execution · SSRF Shield Active · Grounded Evidence Engine</span>
+        <span>CodePilot AI v0.2.0 · Professional AI Development &amp; Architecture Platform</span>
+        <span>Dedicated Workspaces · Isolated Ingestion · Grounded Evidence Engine</span>
       </div>
     </footer>
 

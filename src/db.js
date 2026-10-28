@@ -273,6 +273,31 @@ const SCHEMA_DDL = `
     updated_at TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS operations (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    revision_id TEXT REFERENCES revisions(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    stage TEXT NOT NULL DEFAULT 'initialization',
+    progress INTEGER NOT NULL DEFAULT 0,
+    config TEXT,
+    summary TEXT,
+    error_message TEXT,
+    created_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS operation_events (
+    id TEXT PRIMARY KEY,
+    operation_id TEXT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+    stage TEXT NOT NULL,
+    message TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'info',
+    created_at TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_files_revision_path ON files(revision_id, path);
   CREATE INDEX IF NOT EXISTS idx_symbols_revision_name ON symbols(revision_id, name);
   CREATE INDEX IF NOT EXISTS idx_edges_revision ON edges(revision_id);
@@ -284,6 +309,8 @@ const SCHEMA_DDL = `
   CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, status);
   CREATE INDEX IF NOT EXISTS idx_notes_project ON notes(project_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_api_requests_project ON api_requests(project_id);
+  CREATE INDEX IF NOT EXISTS idx_operations_project ON operations(project_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_op_events_operation ON operation_events(operation_id, created_at ASC);
 `;
 
 class Store {
@@ -1087,6 +1114,85 @@ class Store {
     );
 
     return results;
+  }
+
+  // --- Operations Management ---
+  async createOperation(projectId, revisionId, type, name, config = {}) {
+    const opId = id('op');
+    const ts = now();
+    const configStr = typeof config === 'string' ? config : JSON.stringify(config);
+    await this.run(
+      'INSERT INTO operations (id, project_id, revision_id, type, name, status, stage, progress, config, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      opId,
+      projectId,
+      revisionId || null,
+      type,
+      name,
+      'running',
+      'initialization',
+      0,
+      configStr,
+      ts
+    );
+    await this.addOperationEvent(opId, 'initialization', `Started operation: ${name}`, 'info');
+    return this.getOperation(opId);
+  }
+
+  async getOperation(opId) {
+    const op = await this.get('SELECT * FROM operations WHERE id = ?', opId);
+    if (!op) return null;
+    const events = await this.all(
+      'SELECT id, stage, message, severity, created_at FROM operation_events WHERE operation_id = ? ORDER BY created_at ASC',
+      opId
+    );
+    return { ...op, events };
+  }
+
+  async listOperations(projectId, limit = 50) {
+    return this.all(
+      'SELECT id, project_id, revision_id, type, name, status, stage, progress, summary, error_message, created_at, completed_at FROM operations WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
+      projectId,
+      limit
+    );
+  }
+
+  async updateOperation(opId, { status, stage, progress, summary, errorMessage }) {
+    const existing = await this.get('SELECT * FROM operations WHERE id = ?', opId);
+    if (!existing) return null;
+
+    const nextStatus = status !== undefined ? status : existing.status;
+    const nextStage = stage !== undefined ? stage : existing.stage;
+    const nextProgress = progress !== undefined ? progress : existing.progress;
+    const nextSummary = summary !== undefined ? summary : existing.summary;
+    const nextError = errorMessage !== undefined ? errorMessage : existing.error_message;
+    const completedAt = (nextStatus === 'completed' || nextStatus === 'failed' || nextStatus === 'cancelled') ? now() : existing.completed_at;
+
+    await this.run(
+      'UPDATE operations SET status = ?, stage = ?, progress = ?, summary = ?, error_message = ?, completed_at = ? WHERE id = ?',
+      nextStatus,
+      nextStage,
+      nextProgress,
+      nextSummary,
+      nextError,
+      completedAt,
+      opId
+    );
+    return this.getOperation(opId);
+  }
+
+  async addOperationEvent(opId, stage, message, severity = 'info') {
+    const eventId = id('opevt');
+    const ts = now();
+    await this.run(
+      'INSERT INTO operation_events (id, operation_id, stage, message, severity, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      eventId,
+      opId,
+      stage,
+      message,
+      severity,
+      ts
+    );
+    return { id: eventId, operation_id: opId, stage, message, severity, created_at: ts };
   }
 }
 
