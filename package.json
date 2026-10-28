@@ -1,13 +1,15 @@
 {
   "name": "codepilot-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Local-first, evidence-based codebase intelligence workspace.",
-  "engines": { "node": ">=24.0.0" },
+  "description": "Evidence-driven codebase intelligence, AI software engineering, DevOps, and verified cloud deployment platform.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test tests/**/*.test.js",
-    "check": "node --check src/server.js && node --check src/analyzer.js && node --check src/archive.js"
+    "check": "node --check src/server.js && node --check src/analyzer.js && node --check src/archive.js && node --check src/importer.js && node --check src/architecture.js && node --check src/ai.js && node --check src/planner.js && node --check src/docker.js && node --check src/deployer.js && node --check src/test_runner.js"
   }
 }

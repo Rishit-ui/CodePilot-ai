@@ -1,0 +1,30 @@
+name: CodePilot AI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Code & Security Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Syntax & Contract Check
+        run: npm run check
+
+      - name: Automated Tests (Unit, SSRF, Security & Integration)
+        run: npm test
+
+      - name: Validate Container Configuration
+        run: docker build -t codepilot-ai:test .

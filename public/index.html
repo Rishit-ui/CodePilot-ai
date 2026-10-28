@@ -3,35 +3,267 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Local-first codebase intelligence workspace">
-    <title>CodePilot AI</title>
+    <meta name="description" content="CodePilot AI — Codebase Intelligence, AI Software Engineering, DevOps, and Verified Cloud Deployment">
+    <title>CodePilot AI — Autonomous Engineering Platform</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <a class="skip" href="#main">Skip to workspace</a>
-    <header><div><p class="eyebrow">LOCAL-FIRST CODEBASE INTELLIGENCE</p><h1>CodePilot AI</h1></div><p id="connection" role="status">Checking service…</p></header>
-    <main id="main">
-      <section class="panel intro" aria-labelledby="intro-title"><h2 id="intro-title">Evidence, not guesses.</h2><p>Import a ZIP to create an immutable revision. Code is parsed as data only; it is never executed by this server.</p><p class="notice">Local development mode has no multi-user authentication, AI provider, or cloud deployment adapter. Do not expose it publicly.</p></section>
-      <section class="panel" aria-labelledby="project-title"><h2 id="project-title">Projects</h2><form id="project-form"><label for="project-name">New project name</label><div class="form-row"><input id="project-name" name="name" maxlength="100" required placeholder="e.g. Customer portal"><button type="submit">Create project</button></div></form><p id="project-feedback" class="feedback" role="status"></p><div id="projects" class="project-list" aria-live="polite"></div></section>
-      <section id="workspace" class="hidden" aria-live="polite">
-        <div class="workspace-header"><div><p class="eyebrow">SELECTED PROJECT</p><h2 id="selected-name">—</h2><p id="revision-status">No revision imported.</p></div><button id="refresh" type="button">Refresh analysis</button></div>
-        <section class="panel" aria-labelledby="import-title"><h3 id="import-title">Import a ZIP revision</h3><p>Limits: 10 MB archive, 25 MB extracted, 1,000 files, 2 MB per file. Archives with unsafe paths, symlinks, encrypted entries, or suspicious compression are rejected.</p><form id="import-form"><label for="archive">Repository ZIP</label><div class="form-row"><input id="archive" name="archive" type="file" accept="application/zip,.zip" required><button type="submit">Validate &amp; import</button></div></form><p id="import-feedback" class="feedback" role="status"></p></section>
-        <section id="overview" class="stats" aria-label="Analysis summary"></section>
-        <div class="grid">
-          <section class="panel"><h3>Architecture graph</h3><p class="muted">Static-import evidence only. Select a node to view source.</p><svg id="graph" viewBox="0 0 700 360" role="img" aria-label="Repository dependency graph"></svg></section>
-          <section class="panel"><h3>Findings</h3><div id="findings" class="findings"></div></section>
+    <a class="skip-link" href="#workspace-content">Skip to workspace content</a>
+
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-mark">CP</div>
+        <div>
+          <h1 class="brand-title">CodePilot AI</h1>
+          <p class="brand-subtitle">Codebase Intelligence &amp; Verified Cloud Deployment</p>
         </div>
-        <div class="grid">
-          <section class="panel"><h3>Code explorer</h3><label for="file-search">Filter files</label><input id="file-search" type="search" placeholder="Filename"><div id="files" class="files"></div></section>
-          <section class="panel"><h3 id="source-title">Source preview</h3><pre id="source" tabindex="0">Select a source file to view inert, redacted text.</pre></section>
+      </div>
+      <div class="header-status">
+        <span id="service-pill" class="pill pill-idle" role="status">Connecting…</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- Project Selection & Creation Bar -->
+      <section class="panel project-bar" aria-labelledby="projects-heading">
+        <div class="project-bar-header">
+          <h2 id="projects-heading" class="panel-title">Active Projects</h2>
+          <form id="project-create-form" class="inline-form">
+            <input id="new-project-name" name="name" type="text" maxlength="100" required placeholder="New project name (e.g. Auth Service)">
+            <button type="submit" class="btn btn-primary">Create Project</button>
+          </form>
         </div>
-        <div class="grid">
-          <section class="panel"><h3>Repository assistant</h3><form id="question-form"><label for="question">Ask about the current revision</label><textarea id="question" maxlength="2000" required placeholder="Where is authentication configured?"></textarea><button type="submit">Find source evidence</button></form><div id="answer" class="answer" aria-live="polite"></div></section>
-          <section class="panel"><h3>Deployment readiness</h3><div id="readiness" class="findings"></div></section>
+        <div id="projects-container" class="project-chips" role="tablist" aria-label="Projects"></div>
+        <div id="project-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- Workspace Container (Displayed when project selected) -->
+      <section id="workspace-container" class="workspace-area hidden">
+        <!-- Project Header & Revision Status -->
+        <div class="workspace-banner">
+          <div>
+            <span class="badge badge-accent">ACTIVE PROJECT</span>
+            <h2 id="active-project-name" class="active-title">—</h2>
+            <p id="active-revision-info" class="meta-text">No revision imported yet.</p>
+          </div>
+          <div class="banner-actions">
+            <a id="btn-export-report" class="btn btn-secondary hidden" href="#" download>Export Architecture Report (.md)</a>
+            <button id="btn-refresh" type="button" class="btn btn-secondary">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Ingestion / Import Panel -->
+        <section class="panel import-panel" aria-labelledby="import-heading">
+          <h3 id="import-heading" class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
+          <p class="panel-desc">Import codebase as immutable data. Zip Slip, symlinks, and zip bombs are strictly validated and blocked. Untrusted code is never executed by the API server.</p>
+          
+          <div class="import-tabs">
+            <button type="button" id="tab-btn-zip" class="tab-btn active" onclick="switchImportTab('zip')">Upload ZIP Archive</button>
+            <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">Remote URL (SSRF Protected)</button>
+          </div>
+
+          <form id="zip-import-form" class="import-form">
+            <div class="form-row">
+              <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive">
+              <button type="submit" class="btn btn-accent">Validate &amp; Ingest ZIP</button>
+            </div>
+          </form>
+
+          <form id="url-import-form" class="import-form hidden">
+            <div class="form-row">
+              <input id="remote-url-input" type="url" placeholder="https://github.com/org/repo/archive/refs/heads/main.zip" aria-label="Remote archive URL">
+              <button type="submit" class="btn btn-accent">Fetch &amp; Ingest (SSRF-Safe)</button>
+            </div>
+          </form>
+
+          <div id="import-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
+        </section>
+
+        <!-- Stats Overview Cards -->
+        <section id="stats-overview" class="stats-grid" aria-label="Repository Statistics"></section>
+
+        <!-- Navigation Tabs -->
+        <nav class="feature-nav" role="tablist" aria-label="Workspace features">
+          <button type="button" class="nav-tab active" data-tab="tab-arch">Architecture &amp; Graph</button>
+          <button type="button" class="nav-tab" data-tab="tab-code">Code Explorer</button>
+          <button type="button" class="nav-tab" data-tab="tab-ai">AI Grounded Assistant</button>
+          <button type="button" class="nav-tab" data-tab="tab-findings">Findings &amp; Security</button>
+          <button type="button" class="nav-tab" data-tab="tab-planner">Implementation Planner</button>
+          <button type="button" class="nav-tab" data-tab="tab-patches">Patches &amp; Diffs</button>
+          <button type="button" class="nav-tab" data-tab="tab-docker">Docker Assistant</button>
+          <button type="button" class="nav-tab" data-tab="tab-deploy">Deployment &amp; Verification</button>
+          <button type="button" class="nav-tab" data-tab="tab-audit">Audit Log</button>
+        </nav>
+
+        <div id="workspace-content" class="tab-contents">
+          <!-- Tab 1: Architecture & Graph -->
+          <div id="tab-arch" class="tab-panel active">
+            <div class="panel">
+              <div class="panel-header-split">
+                <div>
+                  <h3 class="panel-subtitle">Interactive Architecture Graph</h3>
+                  <p class="panel-desc">Static imports, routes, and package dependencies. Click any node to open in Code Explorer.</p>
+                </div>
+                <div class="graph-legend">
+                  <span class="legend-dot dot-file"></span> File
+                  <span class="legend-dot dot-pkg"></span> Package
+                </div>
+              </div>
+              <svg id="architecture-graph" viewBox="0 0 850 420" role="img" aria-label="Interactive architecture dependency graph"></svg>
+              <div id="node-detail-panel" class="node-details hidden"></div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Code Explorer -->
+          <div id="tab-code" class="tab-panel hidden">
+            <div class="split-view">
+              <div class="panel side-list">
+                <h3 class="panel-subtitle">Files</h3>
+                <input id="file-search-input" type="search" placeholder="Search files…" aria-label="Search files">
+                <div id="file-list-container" class="file-tree" role="tree"></div>
+              </div>
+              <div class="panel main-viewer">
+                <div class="code-viewer-header">
+                  <span id="selected-file-label" class="file-name-label">No file selected</span>
+                  <span id="redaction-badge" class="badge badge-warning hidden">Redacted Content</span>
+                </div>
+                <pre id="code-preview" tabindex="0">Select a file from the list to view inert source code.</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: AI Assistant -->
+          <div id="tab-ai" class="tab-panel hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Repository Grounded Assistant</h3>
+              <p class="panel-desc">Evidence-first codebase QA. Every claim is strictly grounded in current revision source lines.</p>
+              <form id="ai-ask-form" class="ai-input-box">
+                <textarea id="ai-question-input" rows="3" maxlength="2000" required placeholder="e.g. How is payment processing structured, and what environment variables configure it?"></textarea>
+                <div class="ai-form-actions">
+                  <span class="ai-provider-info">Engine: Grounded Evidence Model</span>
+                  <button type="submit" class="btn btn-primary">Query Repository</button>
+                </div>
+              </form>
+              <div id="ai-response-area" class="ai-response-box" aria-live="polite">
+                <p class="muted">Enter a question above to retrieve source-grounded findings.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 4: Findings & Security -->
+          <div id="tab-findings" class="tab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-split">
+                <div>
+                  <h3 class="panel-subtitle">Codebase Diagnostics &amp; Security Audits</h3>
+                  <p class="panel-desc">Deterministic scans: credential exposure, unpinned Docker images, maintenance markers, missing manifests.</p>
+                </div>
+                <div class="findings-filter">
+                  <select id="findings-filter-select" aria-label="Filter findings by severity">
+                    <option value="all">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                    <option value="info">Info</option>
+                  </select>
+                </div>
+              </div>
+              <div id="findings-list-container" class="findings-list"></div>
+            </div>
+          </div>
+
+          <!-- Tab 5: Implementation Planner -->
+          <div id="tab-planner" class="tab-panel hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Implementation Planner</h3>
+              <p class="panel-desc">Convert feature requests into ordered tasks, acceptance criteria, and complexity assessments.</p>
+              <form id="planner-form" class="planner-input-form">
+                <textarea id="planner-req-input" rows="3" required placeholder="Describe feature request or bugfix (e.g. Add webhook signature validation for Stripe)"></textarea>
+                <button type="submit" class="btn btn-primary">Generate Task Plan</button>
+              </form>
+              <div id="plans-container" class="plans-list"></div>
+            </div>
+          </div>
+
+          <!-- Tab 6: Patches & Diffs -->
+          <div id="tab-patches" class="tab-panel hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Reviewable Patches &amp; Rollbacks</h3>
+              <p class="panel-desc">Unified diffs with conflict detection and instant one-click rollback checkpoints.</p>
+              <div id="patches-container" class="patches-list"></div>
+            </div>
+          </div>
+
+          <!-- Tab 7: Docker Assistant -->
+          <div id="tab-docker" class="tab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-split">
+                <div>
+                  <h3 class="panel-subtitle">Containerization Assistant</h3>
+                  <p class="panel-desc">Multi-stage builds, non-root security users, health checks, and compose topologies.</p>
+                </div>
+                <span id="docker-stack-badge" class="badge badge-accent">Stack: Inspecting…</span>
+              </div>
+              <div class="docker-preview-grid">
+                <div>
+                  <h4 class="subheading">Dockerfile</h4>
+                  <pre id="dockerfile-preview" tabindex="0">No Dockerfile generated yet.</pre>
+                </div>
+                <div>
+                  <h4 class="subheading">docker-compose.yml</h4>
+                  <pre id="compose-preview" tabindex="0">No docker-compose.yml generated yet.</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 8: Deployment & Verification -->
+          <div id="tab-deploy" class="tab-panel hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Cloud Deployment Readiness &amp; Live Verification</h3>
+              <p class="panel-desc">Evidence-based deployment gating. Live health checks are verified against real running endpoints.</p>
+              
+              <div id="readiness-checklist" class="readiness-card"></div>
+
+              <div class="deployment-action-box">
+                <div class="deploy-controls">
+                  <label for="deploy-provider-select">Deployment Provider:</label>
+                  <select id="deploy-provider-select">
+                    <option value="mock">Simulated Provider (Verified Health Check)</option>
+                    <option value="local-docker">Local Docker Container</option>
+                    <option value="render">Render Cloud (render.yaml)</option>
+                    <option value="fly">Fly.io (fly.toml)</option>
+                    <option value="vercel">Vercel (vercel.json)</option>
+                  </select>
+                  <button id="btn-trigger-deploy" type="button" class="btn btn-accent">Deploy &amp; Verify Live Application</button>
+                </div>
+              </div>
+
+              <h4 class="subheading" style="margin-top:1.5rem;">Deployment History &amp; Logs</h4>
+              <div id="deployments-history" class="deploy-history-list"></div>
+            </div>
+          </div>
+
+          <!-- Tab 9: Audit Log -->
+          <div id="tab-audit" class="tab-panel hidden">
+            <div class="panel">
+              <h3 class="panel-subtitle">Immutable Security Audit Trail</h3>
+              <p class="panel-desc">All project creation, revision imports, patch modifications, suppressions, and deployments are tracked.</p>
+              <div id="audit-events-container" class="audit-list"></div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
-    <footer>CodePilot AI v0.1.0 · Imported content is untrusted data · <a href="/api/health">health</a></footer>
+
+    <footer class="app-footer">
+      <div class="footer-inner">
+        <span>CodePilot AI v0.2.0 · Production Architecture Standard</span>
+        <span>Isolated Execution · SSRF Shield Active</span>
+      </div>
+    </footer>
+
     <script src="/app.js" defer></script>
   </body>
 </html>

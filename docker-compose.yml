@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  codepilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codepilot-ai
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - CODEPILOT_HOST=0.0.0.0
+      - CODEPILOT_PORT=3000
+      - CODEPILOT_SESSION_SECRET=prod-insecure-change-this-in-production-vault-key-1234
+    volumes:
+      - codepilot-data:/app/.data
+    networks:
+      - codepilot-net
+
+volumes:
+  codepilot-data:
+    driver: local
+
+networks:
+  codepilot-net:
+    driver: bridge
