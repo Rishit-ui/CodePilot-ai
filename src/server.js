@@ -83,8 +83,27 @@ function parseJson(buffer) {
   }
 }
 
+async function ensureProject(store, projectId) {
+  if (!projectId || typeof projectId !== 'string') return null;
+  let project = await store.project(projectId);
+  if (!project && projectId.startsWith('project_')) {
+    try {
+      await store.run(
+        'INSERT OR IGNORE INTO projects (id, name, created_at) VALUES (?, ?, ?)',
+        projectId,
+        'Active Project',
+        new Date().toISOString()
+      );
+      project = await store.project(projectId);
+    } catch {
+      // Ignore conflict
+    }
+  }
+  return project;
+}
+
 async function latestOrError(store, projectId, response) {
-  const project = await store.project(projectId);
+  const project = await ensureProject(store, projectId);
   if (!project) {
     noProject(response);
     return null;
@@ -271,7 +290,7 @@ function createApp(options = {}) {
       const importMatch = pathname.match(/^\/api\/projects\/([^/]+)\/import$/);
       if (request.method === 'POST' && importMatch) {
         const projectId = importMatch[1];
-        if (!(await store.project(projectId))) return noProject(response);
+        if (!(await ensureProject(store, projectId))) return noProject(response);
         if (request.headers['content-type'] !== 'application/zip') {
           return error(response, 415, 'ZIP_REQUIRED', 'Use Content-Type: application/zip.');
         }
@@ -314,7 +333,7 @@ function createApp(options = {}) {
       const importUrlMatch = pathname.match(/^\/api\/projects\/([^/]+)\/import-url$/);
       if (request.method === 'POST' && importUrlMatch) {
         const projectId = importUrlMatch[1];
-        if (!(await store.project(projectId))) return noProject(response);
+        if (!(await ensureProject(store, projectId))) return noProject(response);
 
         const body = parseJson(await readBody(request, 16 * 1024));
         const rawUrl = (body.url || body.repo || '').trim();
@@ -322,9 +341,14 @@ function createApp(options = {}) {
 
         const job = await store.createJob(projectId, 'import-url', `Fetching repository from ${rawUrl}`);
         try {
-          const archive = await fetchGithubOrRemoteZip(rawUrl, config.limits.maxUploadBytes);
+          const remoteDownloadLimit = config.limits.maxRemoteDownloadBytes || 100 * 1024 * 1024;
+          const remoteLimits = {
+            ...config.limits,
+            maxUploadBytes: remoteDownloadLimit
+          };
+          const archive = await fetchGithubOrRemoteZip(rawUrl, remoteDownloadLimit, config.isVercel ? 28000 : 45000);
           const hash = contentHash(archive);
-          const entries = readZip(archive, config.limits);
+          const entries = readZip(archive, remoteLimits);
           const records = analyze(entries);
           const saved = await store.saveRevision(projectId, hash, records, `Remote import from ${rawUrl}`);
 
@@ -530,7 +554,7 @@ function createApp(options = {}) {
       const aiChatMatch = pathname.match(/^\/api\/projects\/([^/]+)\/ai\/chat$/);
       if (request.method === 'POST' && aiChatMatch) {
         const projectId = aiChatMatch[1];
-        const project = await store.project(projectId);
+        const project = await ensureProject(store, projectId);
         if (!project) return noProject(response);
         const revision = await store.latestRevision(projectId);
         const body = parseJson(await readBody(request, 64 * 1024));
@@ -866,7 +890,7 @@ function createApp(options = {}) {
 
       if (request.method === 'POST' && opsMatch) {
         const projectId = opsMatch[1];
-        const project = await store.project(projectId);
+        const project = await ensureProject(store, projectId);
         if (!project) return noProject(response);
         const revision = await store.latestRevision(projectId);
         const body = parseJson(await readBody(request, 16 * 1024));

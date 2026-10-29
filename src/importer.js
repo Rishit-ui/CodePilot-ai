@@ -204,7 +204,7 @@ async function fetchRemoteZip(urlString, maxBytes = 10 * 1024 * 1024, timeoutMs 
 /**
  * Intelligent remote fetch that tries main then falls back to master if 404 (common GitHub pattern)
  */
-async function fetchGithubOrRemoteZip(inputUrl, maxBytes = 10 * 1024 * 1024, timeoutMs = 15000) {
+async function fetchGithubOrRemoteZip(inputUrl, maxBytes = 100 * 1024 * 1024, timeoutMs = 45000) {
   const normalizedMain = normalizeGithubRepoUrl(inputUrl, 'main');
   try {
     return await fetchRemoteZip(normalizedMain, maxBytes, timeoutMs);

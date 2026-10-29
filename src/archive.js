@@ -19,7 +19,8 @@ function findEndOfCentralDirectory(buffer) {
 
 function readZip(buffer, limits) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 22) throw new ArchiveError('Upload is not a valid ZIP archive.');
-  if (buffer.length > limits.maxUploadBytes) throw new ArchiveError('Archive exceeds the upload-size limit.', 413);
+  const maxArchiveBytes = limits.maxRemoteDownloadBytes || limits.maxUploadBytes;
+  if (buffer.length > maxArchiveBytes) throw new ArchiveError('Archive exceeds the upload-size limit.', 413);
   const eocd = findEndOfCentralDirectory(buffer);
   const entriesCount = buffer.readUInt16LE(eocd + 10);
   const directorySize = buffer.readUInt32LE(eocd + 12);
@@ -52,26 +53,34 @@ function readZip(buffer, limits) {
       if (!safePath(name)) throw new ArchiveError(`Unsafe archive path: ${name}`);
       if (names.has(name)) throw new ArchiveError(`Duplicate archive path: ${name}`);
       names.add(name);
-      if (uncompressedSize > limits.maxFileBytes) throw new ArchiveError(`File exceeds per-file limit: ${name}`);
+      
+      const isOversized = uncompressedSize > limits.maxFileBytes;
       if (compressedSize && uncompressedSize / compressedSize > limits.maxCompressionRatio) throw new ArchiveError(`Suspicious compression ratio: ${name}`);
-      totalUncompressed += uncompressedSize;
-      if (totalUncompressed > limits.maxExtractedBytes) throw new ArchiveError('Archive exceeds extracted-size limit.', 413);
+      
       if (localOffset + 30 > buffer.length || buffer.readUInt32LE(localOffset) !== 0x04034b50) throw new ArchiveError(`Invalid local ZIP record: ${name}`);
       const localNameLength = buffer.readUInt16LE(localOffset + 26);
       const localExtraLength = buffer.readUInt16LE(localOffset + 28);
       const dataStart = localOffset + 30 + localNameLength + localExtraLength;
       if (dataStart + compressedSize > buffer.length) throw new ArchiveError(`Truncated ZIP entry: ${name}`);
-      entries.push({ name, method, compressedSize, uncompressedSize, dataStart });
+      
+      if (!isOversized) {
+        totalUncompressed += uncompressedSize;
+        if (totalUncompressed > limits.maxExtractedBytes) throw new ArchiveError('Archive exceeds extracted-size limit.', 413);
+      }
+      entries.push({ name, method, compressedSize, uncompressedSize, dataStart, isOversized });
     }
     cursor = end;
   }
   return entries.map((entry) => {
+    if (entry.isOversized) {
+      return { path: entry.name, bytes: entry.uncompressedSize, data: Buffer.alloc(0), isOversized: true };
+    }
     const compressed = buffer.subarray(entry.dataStart, entry.dataStart + entry.compressedSize);
     let data;
     try { data = entry.method === 0 ? compressed : zlib.inflateRawSync(compressed, { maxOutputLength: limits.maxFileBytes }); }
     catch { throw new ArchiveError(`Unable to safely decompress: ${entry.name}`); }
     if (data.length !== entry.uncompressedSize) throw new ArchiveError(`Unexpected decompressed size: ${entry.name}`);
-    return { path: entry.name, bytes: data.length, data };
+    return { path: entry.name, bytes: data.length, data, isOversized: false };
   });
 }
 

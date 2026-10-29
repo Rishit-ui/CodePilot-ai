@@ -1311,14 +1311,49 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // File Upload Pre-check
+  $('#zip-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file && file.size > 4.5 * 1024 * 1024) {
+      showFeedback(
+        '#import-feedback',
+        `⚠️ Selected archive is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Direct upload to Vercel is limited to 4.5MB by the edge proxy. Please use the "🔗 GitHub Repository Link" tab to import repos up to 100MB directly!`,
+        true
+      );
+    } else {
+      showFeedback('#import-feedback', '');
+    }
+  });
+
   // File Upload Ingestion
   $('#zip-import-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const file = $('#zip-file-input').files[0];
-    if (!file || !state.activeProject) return;
-    showFeedback('#import-feedback', 'Ingesting and analyzing repository…');
+    if (!file) return;
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      showFeedback(
+        '#import-feedback',
+        `Direct upload blocked: "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB, exceeding Vercel's 4.5MB direct upload limit. Please use the "🔗 GitHub Repository Link" tab to import this repository directly without size restrictions!`,
+        true
+      );
+      return;
+    }
 
     try {
+      if (!state.activeProject) {
+        showFeedback('#import-feedback', 'Creating project workspace...');
+        const projectName = file.name.replace(/\.zip$/i, '') || 'Imported Project';
+        const pRes = await api('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: projectName })
+        });
+        state.activeProject = pRes.project.id;
+        await loadProjects();
+      }
+
+      showFeedback('#import-feedback', 'Ingesting and analyzing repository…');
       const buffer = await file.arrayBuffer();
       await api(`/api/projects/${encodeURIComponent(state.activeProject)}/import`, {
         method: 'POST',
@@ -1326,6 +1361,7 @@ window.addEventListener('DOMContentLoaded', () => {
         body: buffer
       });
       showFeedback('#import-feedback', 'Repository revision successfully ingested and analyzed!');
+      await loadProjects();
       selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', err.message, true);
@@ -1336,16 +1372,30 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#github-import-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const repoUrl = $('#github-repo-input').value.trim();
-    if (!repoUrl || !state.activeProject) return;
-    showFeedback('#import-feedback', 'Fetching GitHub repository archive (main/master)…');
+    if (!repoUrl) return;
 
     try {
+      if (!state.activeProject) {
+        showFeedback('#import-feedback', 'Initializing project workspace...');
+        const repoName = repoUrl.split('/').filter(Boolean).pop()?.replace(/\.git$/i, '') || 'Imported Repo';
+        const pRes = await api('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: repoName })
+        });
+        state.activeProject = pRes.project.id;
+        await loadProjects();
+      }
+
+      showFeedback('#import-feedback', 'Fetching repository from GitHub (up to 100MB supported) & analyzing codebase…');
+
       await api(`/api/projects/${encodeURIComponent(state.activeProject)}/import-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: repoUrl })
       });
-      showFeedback('#import-feedback', 'GitHub repository successfully ingested and analyzed!');
+      showFeedback('#import-feedback', '✅ GitHub repository successfully ingested, indexed, and analyzed!');
+      await loadProjects();
       selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', `GitHub import failed: ${err.message}`, true);
@@ -1356,16 +1406,29 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#url-import-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = $('#remote-url-input').value.trim();
-    if (!url || !state.activeProject) return;
-    showFeedback('#import-feedback', 'Fetching remote archive via SSRF-safe gateway…');
+    if (!url) return;
 
     try {
+      if (!state.activeProject) {
+        showFeedback('#import-feedback', 'Initializing project workspace...');
+        const pRes = await api('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Remote Project' })
+        });
+        state.activeProject = pRes.project.id;
+        await loadProjects();
+      }
+
+      showFeedback('#import-feedback', 'Fetching remote archive via SSRF-safe gateway…');
+
       await api(`/api/projects/${encodeURIComponent(state.activeProject)}/import-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       showFeedback('#import-feedback', 'Remote repository successfully fetched and indexed!');
+      await loadProjects();
       selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', err.message, true);

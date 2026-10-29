@@ -63,8 +63,8 @@ function analyze(entries) {
 
   for (const entry of entries) {
     const lang = languageFor(entry.path);
-    const excluded = excludedReason(entry.path);
-    const text = isText(entry.data) ? entry.data.toString('utf8') : null;
+    const excluded = entry.isOversized ? 'oversized-asset-or-binary' : excludedReason(entry.path);
+    const text = !entry.isOversized && isText(entry.data) ? entry.data.toString('utf8') : null;
     const content = text ? redact(text) : null;
 
     files.push({

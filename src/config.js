@@ -50,9 +50,10 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   // Database URL for hosted PostgreSQL (Neon, Supabase, Vercel Postgres, AWS RDS)
   const databaseUrl = env.DATABASE_URL || env.POSTGRES_URL || env.POSTGRES_PRISMA_URL || null;
 
-  // Adapt upload limit to serverless boundary (4.5MB on Vercel)
+  // Direct HTTP upload limit (4.5MB edge proxy limit on Vercel)
   const defaultMaxUpload = isVercel ? 4.5 * 1024 * 1024 : 10 * 1024 * 1024;
-  const defaultMaxExtracted = isVercel ? 15 * 1024 * 1024 : 30 * 1024 * 1024;
+  // Extracted total uncompressed ceiling (generous for serverless memory)
+  const defaultMaxExtracted = isVercel ? 200 * 1024 * 1024 : 300 * 1024 * 1024;
 
   return Object.freeze({
     env: nodeEnv,
@@ -78,9 +79,10 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
     }),
     limits: Object.freeze({
       maxUploadBytes: integer(env.CODEPILOT_MAX_UPLOAD_BYTES, defaultMaxUpload, 1024, 100 * 1024 * 1024),
-      maxExtractedBytes: integer(env.CODEPILOT_MAX_EXTRACTED_BYTES, defaultMaxExtracted, 1024, 300 * 1024 * 1024),
-      maxFiles: integer(env.CODEPILOT_MAX_FILES, 1_500, 10, 50_000),
-      maxFileBytes: integer(env.CODEPILOT_MAX_FILE_BYTES, 2 * 1024 * 1024, 1024, 10 * 1024 * 1024),
+      maxRemoteDownloadBytes: integer(env.CODEPILOT_MAX_REMOTE_BYTES, 100 * 1024 * 1024, 1024, 250 * 1024 * 1024),
+      maxExtractedBytes: integer(env.CODEPILOT_MAX_EXTRACTED_BYTES, defaultMaxExtracted, 1024, 500 * 1024 * 1024),
+      maxFiles: integer(env.CODEPILOT_MAX_FILES, 5_000, 10, 50_000),
+      maxFileBytes: integer(env.CODEPILOT_MAX_FILE_BYTES, 10 * 1024 * 1024, 1024, 50 * 1024 * 1024),
       maxCompressionRatio: integer(env.CODEPILOT_MAX_COMPRESSION_RATIO, 100, 2, 500),
       maxQuestionChars: 4_000,
       maxSearchResults: 200,
