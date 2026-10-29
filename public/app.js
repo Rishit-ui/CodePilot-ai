@@ -1575,6 +1575,108 @@ window.addEventListener('DOMContentLoaded', () => {
     loadConversations();
   });
 
+  // Impact Analysis Workspace
+  function renderImpactCone(res) {
+    const r = res.impact || {};
+    const lines = [
+      'DIRECT IMPACT (' + ((r.direct || []).length) + '):',
+      ...(r.direct || []).map(n => '  ' + n),
+      '',
+      'TRANSITIVE IMPACT (' + ((r.transitive || []).length) + '):',
+      ...(r.transitive || []).map(n => '  ' + n),
+      '',
+      'UNCERTAINTY CONE (' + ((r.uncertainty || []).length) + '):',
+      ...(r.uncertainty || []).map(n => '  ' + n),
+      '',
+      'AFFECTED ENDPOINTS: ' + ((r.affectedEndpoints || []).join(', ') || 'none'),
+      'AFFECTED CONFIGS:   ' + ((r.affectedConfigKeys || []).join(', ') || 'none'),
+    ];
+    return lines.join('\n');
+  }
+
+  $('#btn-impact-analyze')?.addEventListener('click', async () => {
+    if (!state.activeProject) return alert('Select a project first.');
+    const changedFiles = ($('#impact-files-input').value.trim() || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const box = $('#impact-cone-box');
+    box.textContent = 'Analyzing dependency graph...';
+    try {
+      const res = await api('/api/projects/' + encodeURIComponent(state.activeProject) + '/impact/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changedFiles })
+      });
+      box.textContent = renderImpactCone(res);
+    } catch (err) { box.textContent = 'Analysis error: ' + err.message; }
+  });
+
+  $('#btn-impact-select')?.addEventListener('click', async () => {
+    if (!state.activeProject) return alert('Select a project first.');
+    const changedFiles = ($('#impact-files-input').value.trim() || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const strategy = $('#impact-strategy-select').value;
+    const box = $('#impact-tests-box');
+    box.textContent = 'Selecting regression tests...';
+    try {
+      const res = await api('/api/projects/' + encodeURIComponent(state.activeProject) + '/impact/select-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changedFiles, strategy })
+      });
+      const sel = res.selection || {};
+      const lines = [
+        'STRATEGY: ' + (sel.strategy || strategy),
+        'TOTAL AVAILABLE: ' + (sel.totalAvailable || 0),
+        'SELECTED COUNT:  ' + (sel.selectedCount || 0),
+        'REDUCTION:       ' + (sel.reduction != null ? (sel.reduction * 100).toFixed(1) + '%' : 'N/A'),
+        '',
+        'SELECTED TEST FILES:',
+        ...(sel.selectedTests || []).map(t => '  ' + (t.file || t)),
+      ];
+      box.textContent = lines.join('\n');
+    } catch (err) { box.textContent = 'Test selection error: ' + err.message; }
+  });
+
+  $('#btn-impact-run')?.addEventListener('click', async () => {
+    if (!state.activeProject) return alert('Select a project first.');
+    const changedFiles = ($('#impact-files-input').value.trim() || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const strategy = $('#impact-strategy-select').value;
+    const box = $('#impact-run-box');
+    box.textContent = 'Running regression tests...';
+    try {
+      const res = await api('/api/projects/' + encodeURIComponent(state.activeProject) + '/impact/run-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changedFiles, strategy })
+      });
+      const r = res.result || {};
+      box.textContent = '[Status: ' + (r.status || 'unknown').toUpperCase() + ' | Duration: ' + (r.durationMs || 0) + 'ms]\n\n' + (r.output || '(no output)');
+    } catch (err) { box.textContent = 'Test run error: ' + err.message; }
+  });
+
+  $('#btn-impact-history')?.addEventListener('click', async () => {
+    if (!state.activeProject) return alert('Select a project first.');
+    const container = $('#impact-history-list');
+    container.innerHTML = '<p class="muted">Loading...</p>';
+    try {
+      const res = await api('/api/projects/' + encodeURIComponent(state.activeProject) + '/impact/history');
+      const analyses = res.analyses || [];
+      if (!analyses.length) {
+        container.innerHTML = '<p class="muted">No past analyses found.</p>';
+        return;
+      }
+      container.innerHTML = analyses.map(a => {
+        const ts = new Date(a.created_at).toLocaleString();
+        return '<div style="padding:0.5rem 0.75rem; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:6px; font-size:0.82rem;">'
+          + '<strong>' + escapeHtml((a.id || '').slice(0, 8)) + '</strong>'
+          + ' <span class="muted">' + ts + '</span>'
+          + ' &mdash; Direct: ' + (a.direct_count || 0)
+          + ', Transitive: ' + (a.transitive_count || 0)
+          + '</div>';
+      }).join('');
+    } catch (err) {
+      container.innerHTML = '<p class="muted" style="color:var(--color-danger);">Error: ' + escapeHtml(err.message) + '</p>';
+    }
+  });
+
   // Trigger Deployment
   $('#btn-trigger-deploy')?.addEventListener('click', async () => {
     if (!state.activeProject) return;

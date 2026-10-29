@@ -119,6 +119,11 @@
               <span class="nav-icon">🧪</span>
               <span class="nav-label">Testing &amp; Debugging</span>
             </button>
+          
+            <button type="button" class="sidebar-link" data-view="view-impact">
+              <span class="nav-icon">&#x26A1;</span>
+              <span class="nav-label">Impact Analysis</span>
+            </button>
           </div>
 
           <!-- Data & APIs Section -->
@@ -554,6 +559,61 @@
                 <button id="btn-run-tests" type="button" class="btn btn-primary">Run npm test</button>
               </div>
               <pre id="test-output-box" class="code-box" style="min-height:220px; max-height:400px; overflow-y:auto;">Click 'Run npm test' to execute test suite.</pre>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               View 11b: Impact Analysis
+               ========================================== -->
+          <section id="view-impact" class="page-view hidden">
+            <div class="panel">
+              <div class="page-header">
+                <div>
+                  <h3 class="panel-subtitle">&#x26A1; Change-Impact Analysis</h3>
+                  <p class="panel-desc">Evidence-aware dependency analysis and regression test selection. Identify which components and tests are affected by a code change.</p>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr auto; gap:0.75rem; align-items:end; margin-bottom:1rem;">
+                <div>
+                  <label class="subheading" for="impact-files-input" style="margin-bottom:0.35rem; display:block;">Changed Files <span class="muted">(one path per line, relative to project root)</span></label>
+                  <textarea id="impact-files-input" rows="3" placeholder="src/api/routes.js&#10;src/db/models.js" style="width:100%; font-family:var(--font-mono); font-size:0.8rem;"></textarea>
+                </div>
+                <div>
+                  <label class="subheading" for="impact-strategy-select" style="margin-bottom:0.35rem; display:block;">Test Strategy</label>
+                  <select id="impact-strategy-select" class="api-method-select" style="width:160px;">
+                    <option value="evidence-aware">Evidence-Aware</option>
+                    <option value="changed-file">Changed-File</option>
+                    <option value="all">Run All</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+                <button id="btn-impact-analyze" type="button" class="btn btn-primary">Analyze Impact</button>
+                <button id="btn-impact-select" type="button" class="btn btn-secondary">Select Tests</button>
+                <button id="btn-impact-run" type="button" class="btn btn-secondary">Run Selected Tests</button>
+                <button id="btn-impact-history" type="button" class="btn btn-secondary">Load History</button>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div>
+                  <h4 class="subheading" style="margin-bottom:0.5rem;">Impact Cone</h4>
+                  <pre id="impact-cone-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;">Run "Analyze Impact" to compute the change-impact cone.</pre>
+                </div>
+                <div>
+                  <h4 class="subheading" style="margin-bottom:0.5rem;">Selected Tests</h4>
+                  <pre id="impact-tests-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;">Run "Select Tests" to see which test files will be executed.</pre>
+                </div>
+              </div>
+
+              <h4 class="subheading" style="margin:1rem 0 0.5rem;">Test Execution Output</h4>
+              <pre id="impact-run-box" class="code-box" style="min-height:120px; max-height:260px; overflow-y:auto;">Click "Run Selected Tests" to execute the regression suite.</pre>
+
+              <h4 class="subheading" style="margin:1rem 0 0.5rem;">Analysis History</h4>
+              <div id="impact-history-list" style="display:flex; flex-direction:column; gap:0.5rem; max-height:220px; overflow-y:auto;">
+                <p class="muted">Click "Load History" to retrieve past analyses.</p>
+              </div>
             </div>
           </section>
 

@@ -311,6 +311,19 @@ const SCHEMA_DDL = `
   CREATE INDEX IF NOT EXISTS idx_api_requests_project ON api_requests(project_id);
   CREATE INDEX IF NOT EXISTS idx_operations_project ON operations(project_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_op_events_operation ON operation_events(operation_id, created_at ASC);
+  CREATE TABLE IF NOT EXISTS impact_analyses (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    revision_id TEXT NOT NULL REFERENCES revisions(id) ON DELETE CASCADE,
+    changed_files TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    impact_summary TEXT,
+    selected_tests TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_impact_analyses_project ON impact_analyses(project_id, created_at DESC);
+
 `;
 
 class Store {
@@ -1194,6 +1207,33 @@ class Store {
     );
     return { id: eventId, operation_id: opId, stage, message, severity, created_at: ts };
   }
+
+  async saveImpactAnalysis(projectId, revisionId, changedFiles, strategy, summary, selectedTests) {
+    const analysisId = `impact_${crypto.randomUUID()}`;
+    const ts = now();
+    await this.run(
+      'INSERT INTO impact_analyses VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      analysisId,
+      projectId,
+      revisionId,
+      JSON.stringify(changedFiles),
+      strategy,
+      JSON.stringify(summary),
+      JSON.stringify(selectedTests),
+      ts
+    );
+    return { id: analysisId, created_at: ts };
+  }
+
+  async listImpactAnalyses(projectId, limit = 20) {
+    return this.all(
+      'SELECT * FROM impact_analyses WHERE project_id = ? ORDER BY created_at DESC LIMIT ?',
+      projectId,
+      limit
+    );
+  }
 }
 
 module.exports = { Store };
+
+

@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-10-29T16:55:33.214Z",
+  "environment": {
+    "nodeVersion": "v24.21.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "scenarios": [
+    {
+      "scenarioId": "SCENARIO_1_DIRECT_MODIFICATION",
+      "name": "Direct Function Modification (math.js)",
+      "description": "Localized change altering utility function add().",
+      "changedFiles": [
+        "src/utils/math.js"
+      ],
+      "targetRegressionTest": "tests/math.test.js",
+      "outcomes": {
+        "all": {
+          "selectedCount": 4,
+          "totalCount": 8,
+          "reductionRatio": 0,
+          "caughtRegression": true
+        },
+        "changedFile": {
+          "selectedCount": 1,
+          "totalCount": 8,
+          "reductionRatio": 0.75,
+          "caughtRegression": true
+        },
+        "evidenceAware": {
+          "selectedCount": 1,
+          "totalCount": 8,
+          "reductionRatio": 0.75,
+          "caughtRegression": true
+        }
+      }
+    },
+    {
+      "scenarioId": "SCENARIO_2_TRANSITIVE_DEPENDENCY",
+      "name": "Transitive Deep Dependency Modification (database.js)",
+      "description": "Database query schema mutated; checkoutController transitively breaks without directly importing database.js.",
+      "changedFiles": [
+        "src/core/database.js"
+      ],
+      "targetRegressionTest": "tests/checkout.test.js",
+      "outcomes": {
+        "all": {
+          "selectedCount": 4,
+          "totalCount": 8,
+          "reductionRatio": 0,
+          "caughtRegression": true
+        },
+        "changedFile": {
+          "selectedCount": 1,
+          "totalCount": 8,
+          "reductionRatio": 0.75,
+          "caughtRegression": false
+        },
+        "evidenceAware": {
+          "selectedCount": 2,
+          "totalCount": 8,
+          "reductionRatio": 0.5,
+          "caughtRegression": true
+        }
+      }
+    },
+    {
+      "scenarioId": "SCENARIO_3_CONFLICTED_UNCERTAINTY",
+      "name": "Conflicting / Uncertain Evidence Handling",
+      "description": "Dynamic dispatch edge flagged with CONFLICTED status; evaluates whether conservative fallback prevents regression escape.",
+      "changedFiles": [
+        "src/services/orderService.js"
+      ],
+      "targetRegressionTest": "tests/checkout.test.js",
+      "outcomes": {
+        "all": {
+          "selectedCount": 4,
+          "totalCount": 8,
+          "reductionRatio": 0,
+          "caughtRegression": true
+        },
+        "changedFile": {
+          "selectedCount": 0,
+          "totalCount": 8,
+          "reductionRatio": 1,
+          "caughtRegression": false
+        },
+        "evidenceAware": {
+          "selectedCount": 1,
+          "totalCount": 8,
+          "reductionRatio": 0.75,
+          "caughtRegression": true
+        }
+      }
+    }
+  ],
+  "performance": {
+    "avgFullRebuildMs": 0.4013899999999985,
+    "avgIncrementalMs": 0.5421199999999999,
+    "speedupRatio": 0.7404080277429325,
+    "iterations": 10
+  }
+}
