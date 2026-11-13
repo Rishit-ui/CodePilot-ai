@@ -32,7 +32,7 @@ test('loadConfig prevents insecure session secret in production', () => {
 
 test('production rejects weak secrets and disabled authentication, including Vercel', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-config-'));
-  const keys = ['NODE_ENV', 'VERCEL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED'];
+  const keys = ['NODE_ENV', 'VERCEL', 'DATABASE_URL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED'];
   const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
     process.env.NODE_ENV = 'production';
@@ -43,12 +43,14 @@ test('production rejects weak secrets and disabled authentication, including Ver
     process.env.CODEPILOT_SESSION_SECRET = 'change-this-known-placeholder-secret-value';
     assert.throws(() => loadConfig(tempRoot), /known placeholder/);
     process.env.CODEPILOT_SESSION_SECRET = 'a'.repeat(64);
+    process.env.DATABASE_URL = 'postgres://user:pass@db.example.com/codepilot';
     process.env.CODEPILOT_AUTH_ENABLED = 'false';
     assert.throws(() => loadConfig(tempRoot), /cannot be disabled/);
     process.env.CODEPILOT_AUTH_ENABLED = 'true';
     const config = loadConfig(tempRoot);
     assert.equal(config.authEnabled, true);
     assert.equal(config.sessionSecret, 'a'.repeat(64));
+    assert.equal(config.database.sslMode, 'verify-full');
   } finally {
     for (const key of keys) original[key] === undefined ? delete process.env[key] : process.env[key] = original[key];
     fs.rmSync(tempRoot, { recursive: true, force: true });

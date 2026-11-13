@@ -27,6 +27,7 @@ const { generatePlanFromRequirement, createUnifiedDiff } = require('./planner');
 const { detectStack, generateDockerfile, generateDockerignore, generateDockerCompose } = require('./docker');
 const { evaluateReadiness, executeDeployment } = require('./deployer');
 const { runIsolatedTest } = require('./test_runner');
+const { enforceRateLimit, requestIp } = require('./rate_limit');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -174,8 +175,13 @@ function createApp(options = {}) {
   const suppliedConfig = options.config || loadConfig(ROOT);
   // Partial embedded/test configurations must opt out explicitly. An omitted
   // flag never creates an accidental authentication bypass.
-  const config = Object.freeze({ ...suppliedConfig, authEnabled: suppliedConfig.authEnabled !== false });
-  const store = options.store || new Store({ dataDir: config.dataDir, databaseUrl: config.databaseUrl, sessionSecret: config.sessionSecret });
+  const config = Object.freeze({
+    ...suppliedConfig,
+    authEnabled: suppliedConfig.authEnabled !== false,
+    rateLimit: suppliedConfig.rateLimit || { enabled: false, failClosed: false, policies: {} },
+    execution: suppliedConfig.execution || { mode: 'local-development', workerUrl: '', workerToken: '' }
+  });
+  const store = options.store || new Store({ dataDir: config.dataDir, databaseUrl: config.databaseUrl, database: config.database, sessionSecret: config.sessionSecret });
 
   const handleRequest = async (request, response) => {
     const requestId = crypto.randomUUID();
@@ -227,6 +233,8 @@ function createApp(options = {}) {
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
       const currentUser = token ? await store.getSessionUser(token) : null;
 
+      if (!(await enforceRateLimit({ store, request, response, config: config.rateLimit, user: currentUser, pathname, json }))) return;
+
       // --- Health & Readiness Endpoints ---
       if (request.method === 'GET' && (pathname === '/api/health' || pathname === '/api')) {
         return json(response, 200, {
@@ -238,6 +246,7 @@ function createApp(options = {}) {
             serverless: config.isVercel,
             database: store.dialect,
             auth: config.authEnabled ? 'enabled' : 'local-open',
+            execution: config.execution.mode,
             aiProvider: config.ai.provider,
             supportedDeployments: config.deployment.allowedProviders,
             maxUploadMb: Math.round(config.limits.maxUploadBytes / (1024 * 1024))
@@ -246,8 +255,29 @@ function createApp(options = {}) {
       }
 
       if (request.method === 'GET' && pathname === '/api/ready') {
-        await store.get('SELECT 1 AS ready');
-        return json(response, 200, { status: 'ready', requestId });
+        try {
+          const database = await store.ping();
+          return json(response, 200, {
+            status: 'ready',
+            dependencies: {
+              database,
+              rateLimitStore: config.rateLimit.enabled ? { status: 'available', backend: store.dialect } : { status: 'disabled' },
+              worker: config.execution.mode === 'external-worker' ? { status: config.execution.workerUrl ? 'configured-not-probed' : 'unavailable' } : { status: config.execution.mode }
+            },
+            requestId
+          });
+        } catch {
+          await store.recordOperationalEvent('readiness.database_unavailable', 'error', null, requestId, 'Database readiness probe failed').catch(() => {});
+          return json(response, 503, {
+            status: 'not-ready',
+            dependencies: {
+              database: { status: 'unavailable' },
+              rateLimitStore: config.rateLimit.enabled ? { status: 'unavailable', backend: store.dialect } : { status: 'disabled' },
+              worker: { status: config.execution.mode }
+            },
+            requestId
+          });
+        }
       }
 
       // --- Authentication Endpoints ---
@@ -277,6 +307,16 @@ function createApp(options = {}) {
         const { email, password } = body;
         const user = await store.authenticateUser(email, password);
         if (!user) {
+          if (config.rateLimit.enabled) {
+            const ip = requestIp(request, config.rateLimit);
+            const failureIdentity = crypto.createHash('sha256').update(`${String(email || '').toLowerCase()}|${ip}`).digest('hex');
+            const failure = await store.consumeRateLimit(`rl:auth-failure:${failureIdentity}`, config.rateLimit.authFailureMax, config.rateLimit.authFailureWindowMs);
+            await store.audit('security.authentication_failed', null, 'Login failed for a redacted account identifier.', null);
+            if (!failure.allowed) {
+              response.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': String(failure.retryAfterSeconds), 'Cache-Control': 'no-store' });
+              return response.end(JSON.stringify({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many failed login attempts. Retry later.' } }));
+            }
+          }
           return error(response, 401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
         }
         const session = await store.createSession(user.id);
@@ -363,6 +403,12 @@ function createApp(options = {}) {
         return deleted ? json(response, 200, { success: true, requestId }) : noProject(response);
       }
 
+      if (request.method === 'PATCH' && projectMatch) {
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const updated = await store.updateProject(projectMatch[1], body, currentUser?.id || null);
+        return updated ? json(response, 200, { project: updated, requestId }) : error(response, 422, 'INVALID_PROJECT', 'Project update is invalid.');
+      }
+
       // --- ZIP Import Endpoint ---
       const importMatch = pathname.match(/^\/api\/projects\/([^/]+)\/import$/);
       if (request.method === 'POST' && importMatch) {
@@ -402,6 +448,7 @@ function createApp(options = {}) {
           });
         } catch (importError) {
           await store.finishJob(job.id, null, 'failed', importError.message);
+          await store.recordOperationalEvent('import.failed', 'error', projectId, requestId, importError.message);
           throw importError;
         }
       }
@@ -986,6 +1033,23 @@ function createApp(options = {}) {
 
         const op = await store.createOperation(projectId, revision?.id, type, name, opConfig || {});
 
+        if (config.isVercel) {
+          if (config.execution.mode !== 'external-worker' || !config.execution.workerUrl || !config.execution.workerToken) {
+            const failed = await store.updateOperation(op.id, {
+              status: 'failed', stage: 'worker-unavailable', progress: 0,
+              errorMessage: 'External worker is not configured; serverless background execution was not started.'
+            });
+            await store.recordOperationalEvent('worker.unavailable', 'error', projectId, requestId, 'External worker is not configured.');
+            return json(response, 503, { operation: failed, error: { code: 'WORKER_UNAVAILABLE', message: 'External worker is unavailable.' }, requestId });
+          }
+          const queuedJob = await store.enqueueExecutionJob(projectId, currentUser?.id || null, type, { operationId: op.id, config: opConfig || {} });
+          const pending = await store.updateOperation(op.id, {
+            status: 'pending', stage: 'queued', progress: 0,
+            summary: 'Persisted for an external worker. No in-function background execution was started.'
+          });
+          return json(response, 202, { operation: pending, job: queuedJob, requestId });
+        }
+
         // Run operation workflow stages based on type
         (async () => {
           try {
@@ -1035,6 +1099,7 @@ function createApp(options = {}) {
               });
             }
           } catch (runErr) {
+            await store.recordOperationalEvent('operation.failed', 'error', projectId, requestId, runErr.message);
             await store.addOperationEvent(op.id, 'error', runErr.message, 'error');
             await store.updateOperation(op.id, {
               status: 'failed',
@@ -1177,6 +1242,9 @@ function createApp(options = {}) {
         // Execute synchronously with host header for live verification
         const result = await executeDeployment(store, deployment.id, config, request.headers.host);
         await store.audit('deployment.executed', context.project.id, `Deployment ${deployment.id} to ${provider} resulted in ${result.status}`, currentUser?.id);
+        if (result.status !== 'verified') {
+          await store.recordOperationalEvent('deployment.verification_failed', 'error', context.project.id, requestId, `deployment=${deployment.id}; provider=${provider}; status=${result.status}`);
+        }
         return json(response, 201, { deployment: result, requestId });
       }
 
@@ -1295,13 +1363,13 @@ function createApp(options = {}) {
         reconciler.reconcileGraph(graph, [], context.revision.id);
         const selection = selector.selectTests(graph, changedFiles, strategy);
 
-        if (config.isVercel) {
+        if (config.isVercel || config.isProduction || config.execution.mode !== 'local-development') {
           return json(response, 200, {
             selection,
             execution: {
-              status: TEST_STATUS.NOT_EXECUTED,
+              status: TEST_STATUS.BLOCKED,
               exitCode: null,
-              output: 'Tests were selected but were not executed because this serverless runtime does not provide an isolated project workspace. No external CI result was configured.',
+              output: 'Execution is disabled in production until a separately isolated external worker is configured and verified.',
               durationMs: null,
               executed: false
             },
@@ -1337,12 +1405,12 @@ function createApp(options = {}) {
         const body = parseJson(await readBody(request, 8 * 1024));
         const command = (body.command || 'npm test').trim();
 
-        if (config.isVercel) {
+        if (config.isVercel || config.isProduction || config.execution.mode !== 'local-development') {
           return json(response, 200, {
             result: {
-              status: TEST_STATUS.NOT_EXECUTED,
+              status: TEST_STATUS.BLOCKED,
               exitCode: null,
-              output: 'Tests were not executed because this serverless runtime does not provide an isolated project workspace. No verifiable external CI run was retrieved.',
+              output: 'Execution is disabled in production until a separately isolated external worker is configured and verified.',
               durationMs: null,
               executed: false
             },
@@ -1388,7 +1456,8 @@ function createApp(options = {}) {
     } catch (caught) {
       const status = caught.status || (caught instanceof ArchiveError ? caught.status : 500);
       if (status >= 500) {
-        console.error(JSON.stringify({ level: 'error', requestId, message: caught.message, stack: caught.stack }));
+        await store.recordOperationalEvent('api.error', 'error', null, requestId, caught.message).catch(() => {});
+        console.error(JSON.stringify({ level: 'error', event: 'api.error', requestId, message: String(caught.message || 'Unexpected error').slice(0, 500) }));
       }
       return error(
         response,

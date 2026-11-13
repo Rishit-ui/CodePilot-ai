@@ -1,32 +1,22 @@
 # Deployment Readiness
 
-Evaluation date: 2026-11-13
+Evaluation: 2026-11-13
 
-Decision: `BLOCKED` for public production deployment; Docker packaging is verified
+Decision: `PASS` for a controlled deployment with arbitrary repository execution disabled; `BLOCKED` for enabling multi-tenant untrusted execution; cloud deployment itself is `NOT TESTED` and was prohibited.
 
-| Gate | Result | Evidence |
+| Gate | Status | Evidence |
 | --- | --- | --- |
-| Syntax validation | PASS | `npm run check` exited 0 after repairs. |
-| Automated tests | PASS | Final suite: 53 passed, 0 failed, 0 skipped. |
-| Route authentication | PASS | Central middleware and serverless rewrite regression tests. |
-| Project ownership | PASS | Owner/workspace RBAC and cross-user access tests. |
-| Production secrets | PASS | Startup rejects missing/weak/placeholder secrets and disabled production auth. |
-| Truthful test states | PASS | No serverless branch reports PASS without execution. |
-| Compose interpolation | PASS | `docker compose config` succeeded with an injected secret. |
-| Image build | PASS | `docker build --tag codepilot-ai:phase1 .` succeeded using `npm ci --omit=dev`; npm reported 0 vulnerabilities. |
-| Container runtime | PASS | Temporary container reported `running healthy`, ran as `codepilot`, and returned HTTP 200 from `/api/health`. |
-| Live PostgreSQL | NOT VERIFIED | No PostgreSQL service or production database was supplied. |
-| Rate limiting | BLOCKED | Auth endpoints lack application-level throttling. |
-| Untrusted execution isolation | BLOCKED | Test execution is a host subprocess, not a separate sandbox worker. |
-| Cloud deployment | NOT EXECUTED | Phase instructions prohibited deployment. |
+| Authentication and tenant isolation | `PASS` | Phase 1 regressions retained. |
+| Distributed rate limiting | `PASS` | Actual PostgreSQL multi-pool concurrency and HTTP abuse tests. |
+| PostgreSQL lifecycle/restart | `PASS` | PostgreSQL 17 integration test. |
+| Migrations | `PASS` | Fresh init, legacy upgrade, repeat run, rollback, constraints. |
+| Backup/restore | `PASS` | Custom dump restored; all measured counts matched. |
+| Production image | `PASS` | `codepilot-ai:phase2-final` built; healthy, non-root, DB ready. |
+| Execution security | `PASS` by disablement | `CODEPILOT_EXECUTION_MODE=disabled`; secure worker `BLOCKED`. |
+| Serverless routing/auth | `PASS` | Entry point and rewrite regression tests. |
+| Managed Vercel deployment | `NOT TESTED` | No deploy or provider credentials used. |
+| External queue/worker availability | `NOT TESTED` | Durable DB jobs exist; no worker provisioned. |
 
-## Required production configuration
+Required production variables: `NODE_ENV=production`, `CODEPILOT_AUTH_ENABLED=true`, a unique 32+ character `CODEPILOT_SESSION_SECRET`, durable `DATABASE_URL`, appropriate `CODEPILOT_DB_SSL_MODE` (normally `verify-full`), `CODEPILOT_RATE_LIMIT_ENABLED=true`, and `CODEPILOT_EXECUTION_MODE=disabled` until the worker gate passes.
 
-- `NODE_ENV=production`
-- `CODEPILOT_AUTH_ENABLED=true`
-- `CODEPILOT_SESSION_SECRET`: unique random value of at least 32 characters supplied by a secret manager
-- `DATABASE_URL`: required for PostgreSQL; omit only when using the persistent SQLite volume
-
-Docker Compose preserves `/app/.data` in `codepilot-data` and requires the session secret through `${CODEPILOT_SESSION_SECRET:?...}`. The image contains production dependencies, `src`, and `public`; `.env`, Git metadata, tests, logs, and local data are excluded.
-
-Do not deploy publicly until rate limiting and isolated untrusted execution are resolved or those features are disabled at the production boundary.
+Readiness requires PostgreSQL. `/api/ready` returns 503 with sanitized dependency status when it is unavailable. Do not use SQLite on Vercel or for horizontally scaled production.

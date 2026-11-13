@@ -325,6 +325,53 @@ const SCHEMA_DDL = `
 
   CREATE INDEX IF NOT EXISTS idx_impact_analyses_project ON impact_analyses(project_id, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+    bucket_key TEXT PRIMARY KEY,
+    window_start INTEGER NOT NULL,
+    request_count INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_rate_limit_updated ON rate_limit_buckets(updated_at);
+
+  CREATE TABLE IF NOT EXISTS operational_events (
+    id TEXT PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    request_id TEXT,
+    detail TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_operational_events_created ON operational_events(created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS execution_jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    job_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    available_at TEXT NOT NULL,
+    lease_owner TEXT,
+    lease_expires_at TEXT,
+    cancel_requested INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_execution_jobs_claim ON execution_jobs(status, available_at, created_at);
+
 `;
 
 class Store {
@@ -332,11 +379,13 @@ class Store {
     let dataDir = '.data';
     let databaseUrl = null;
     let sessionSecret = null;
+    let databaseConfig = null;
 
     if (typeof dataDirOrOptions === 'object' && dataDirOrOptions !== null) {
       dataDir = dataDirOrOptions.dataDir || '.data';
       databaseUrl = dataDirOrOptions.databaseUrl || null;
       sessionSecret = dataDirOrOptions.sessionSecret || null;
+      databaseConfig = dataDirOrOptions.database || null;
     } else {
       dataDir = dataDirOrOptions || '.data';
       databaseUrl = maybeDatabaseUrl || null;
@@ -345,16 +394,24 @@ class Store {
     this.databaseUrl = databaseUrl;
     this.dataDir = dataDir;
     this.sessionSecret = sessionSecret || crypto.randomBytes(32).toString('hex');
+    this.databaseConfig = databaseConfig || {};
 
     if (this.databaseUrl) {
       this.dialect = 'postgres';
       const { Pool } = require('pg');
       const isLocalhost = this.databaseUrl.includes('localhost') || this.databaseUrl.includes('127.0.0.1');
+      const sslMode = this.databaseConfig.sslMode || (isLocalhost ? 'disable' : 'verify-full');
+      const ssl = sslMode === 'disable' || (sslMode === 'prefer' && isLocalhost)
+        ? false
+        : { rejectUnauthorized: sslMode === 'verify-full' };
       this.pool = new Pool({
         connectionString: this.databaseUrl,
-        ssl: isLocalhost ? false : { rejectUnauthorized: false },
-        max: 10,
-        idleTimeoutMillis: 30000
+        ssl,
+        max: this.databaseConfig.poolMax || 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: this.databaseConfig.connectionTimeoutMs || 5000,
+        query_timeout: this.databaseConfig.queryTimeoutMs || 15000,
+        statement_timeout: this.databaseConfig.queryTimeoutMs || 15000
       });
       this.initPostgresSchema();
     } else {
@@ -375,16 +432,30 @@ class Store {
       if (!projectColumns.some((column) => column.name === 'owner_id')) {
         this.sqlite.exec('ALTER TABLE projects ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE SET NULL;');
       }
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(1, 'baseline-schema', now());
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(2, 'project-ownership-and-rate-limits', now());
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(3, 'operational-monitoring', now());
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(4, 'durable-execution-queue', now());
     }
   }
 
   initPostgresSchema() {
     this.readyPromise = (async () => {
+      const client = await this.pool.connect();
       try {
-        await this.pool.query(SCHEMA_DDL);
-        await this.pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL');
+        await client.query('BEGIN');
+        await client.query(SCHEMA_DDL);
+        await client.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL');
+        await client.query("INSERT INTO schema_migrations VALUES (1, 'baseline-schema', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        await client.query("INSERT INTO schema_migrations VALUES (2, 'project-ownership-and-rate-limits', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        await client.query("INSERT INTO schema_migrations VALUES (3, 'operational-monitoring', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        await client.query("INSERT INTO schema_migrations VALUES (4, 'durable-execution-queue', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        await client.query('COMMIT');
       } catch (err) {
-        console.error('Failed to initialize PostgreSQL schema:', err.message);
+        await client.query('ROLLBACK').catch(() => {});
+        throw new Error(`PostgreSQL initialization failed: ${err.message}`);
+      } finally {
+        client.release();
       }
     })();
   }
@@ -432,6 +503,31 @@ class Store {
     return this.sqlite.prepare(sql).all(...args);
   }
 
+  async ping() {
+    const startedAt = Date.now();
+    await this.get('SELECT 1 AS healthy');
+    return { status: 'available', dialect: this.dialect, latencyMs: Date.now() - startedAt };
+  }
+
+  async consumeRateLimit(bucketKey, limit, windowMs, timestamp = Date.now()) {
+    const expiredBefore = timestamp - windowMs;
+    const row = await this.get(`
+      INSERT INTO rate_limit_buckets (bucket_key, window_start, request_count, updated_at)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(bucket_key) DO UPDATE SET
+        window_start = CASE WHEN rate_limit_buckets.window_start <= ? THEN ? ELSE rate_limit_buckets.window_start END,
+        request_count = CASE WHEN rate_limit_buckets.window_start <= ? THEN 1 ELSE rate_limit_buckets.request_count + 1 END,
+        updated_at = ?
+      RETURNING window_start, request_count
+    `, bucketKey, timestamp, now(), expiredBefore, timestamp, expiredBefore, now());
+    const retryAfterSeconds = Math.max(1, Math.ceil((Number(row.window_start) + windowMs - timestamp) / 1000));
+    return { allowed: Number(row.request_count) <= limit, remaining: Math.max(0, limit - Number(row.request_count)), retryAfterSeconds };
+  }
+
+  async resetRateLimit(bucketKey) {
+    await this.run('DELETE FROM rate_limit_buckets WHERE bucket_key=?', bucketKey);
+  }
+
   async audit(action, projectId, detail, actorId = null) {
     const eventId = id('audit');
     await this.run(
@@ -444,6 +540,41 @@ class Store {
       now()
     );
     return eventId;
+  }
+
+  async recordOperationalEvent(eventType, severity, projectId, requestId, detail) {
+    const safeDetail = String(detail || '').replace(/(password|secret|token|authorization)=?[^;\s]*/gi, '$1=[REDACTED]').slice(0, 1000);
+    await this.run('INSERT INTO operational_events VALUES (?, ?, ?, ?, ?, ?, ?)', id('event'), eventType, severity, projectId || null, requestId || null, safeDetail, now());
+  }
+
+  async enqueueExecutionJob(projectId, actorId, jobType, payload = {}, maxAttempts = 3) {
+    const jobId = id('execjob');
+    const timestamp = now();
+    await this.run(
+      'INSERT INTO execution_jobs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      jobId, projectId, actorId || null, jobType, JSON.stringify(payload), 'PENDING', 0,
+      maxAttempts, timestamp, null, null, 0, null, timestamp, timestamp
+    );
+    await this.audit('execution.queued', projectId, `Queued ${jobType} job ${jobId}`, actorId);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async requestExecutionCancellation(jobId, actorId) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+    if (!job || (actorId && job.actor_id && job.actor_id !== actorId)) return null;
+    await this.run("UPDATE execution_jobs SET cancel_requested=1, status=CASE WHEN status='PENDING' THEN 'CANCELLED' ELSE status END, updated_at=? WHERE id=?", now(), jobId);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async recordExecutionFailure(jobId, message, baseDelayMs = 1000) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+    if (!job) return null;
+    const attempts = Number(job.attempts) + 1;
+    const retry = attempts < Number(job.max_attempts) && !Number(job.cancel_requested);
+    const availableAt = new Date(Date.now() + Math.min(60_000, baseDelayMs * (2 ** (attempts - 1)))).toISOString();
+    await this.run('UPDATE execution_jobs SET attempts=?, status=?, available_at=?, error_message=?, lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE id=?', attempts, retry ? 'PENDING' : 'FAILED', availableAt, String(message).slice(0, 1000), now(), jobId);
+    await this.recordOperationalEvent('worker.execution_failed', 'error', job.project_id, null, `job=${jobId}; attempt=${attempts}`);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
   }
 
   // User & Auth operations
@@ -588,6 +719,17 @@ class Store {
 
   async project(idValue) {
     return await this.get('SELECT * FROM projects WHERE id = ?', idValue);
+  }
+
+  async updateProject(projectId, updates = {}, actorId = null) {
+    const project = await this.project(projectId);
+    if (!project) return null;
+    const name = updates.name === undefined ? project.name : String(updates.name).trim();
+    const description = updates.description === undefined ? project.description : String(updates.description).trim();
+    if (!name || name.length > 100) return null;
+    await this.run('UPDATE projects SET name=?, description=? WHERE id=?', name, description, projectId);
+    await this.audit('project.updated', projectId, `Updated project ${projectId}`, actorId);
+    return this.project(projectId);
   }
 
   async getProjectAccess(projectId, user) {

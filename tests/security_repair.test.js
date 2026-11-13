@@ -69,7 +69,7 @@ test('project ownership and nested resource ownership prevent cross-user access'
   assert.ok(!bobAudit.body.events.some((event) => event.project_id === projectId));
 });
 
-test('serverless test endpoints report NOT_EXECUTED without fabricated exit data', async (t) => {
+test('serverless test endpoints report BLOCKED without fabricated execution data', async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-teststate-'));
   const app = createApp({ config: configFor(dataDir, { isVercel: true, authEnabled: false }) });
   t.after(async () => { await app.store.close(); fs.rmSync(dataDir, { recursive: true, force: true }); });
@@ -83,12 +83,12 @@ test('serverless test endpoints report NOT_EXECUTED without fabricated exit data
     return { status, body: JSON.parse(raw) };
   };
   const regular = await invoke(`/api/projects/${project.id}/tests/run`, { command: 'npm test' });
-  assert.equal(regular.body.result.status, 'NOT_EXECUTED');
+  assert.equal(regular.body.result.status, 'BLOCKED');
   assert.equal(regular.body.result.executed, false);
   assert.equal(regular.body.result.exitCode, null);
   assert.equal(regular.body.result.durationMs, null);
   const impact = await invoke(`/api/projects/${project.id}/impact/run-tests`, { changedFiles: [] });
-  assert.equal(impact.body.execution.status, 'NOT_EXECUTED');
+  assert.equal(impact.body.execution.status, 'BLOCKED');
   assert.equal(impact.body.execution.executed, false);
   assert.notEqual(impact.body.execution.exitCode, 0);
 });

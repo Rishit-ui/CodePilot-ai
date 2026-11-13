@@ -13,7 +13,10 @@ services:
       CODEPILOT_PORT: 3000
       CODEPILOT_AUTH_ENABLED: "true"
       CODEPILOT_SESSION_SECRET: ${CODEPILOT_SESSION_SECRET:?CODEPILOT_SESSION_SECRET must be set to a strong random value}
-      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must reference a durable PostgreSQL database}
+      CODEPILOT_DB_SSL_MODE: ${CODEPILOT_DB_SSL_MODE:-verify-full}
+      CODEPILOT_RATE_LIMIT_ENABLED: "true"
+      CODEPILOT_EXECUTION_MODE: disabled
     volumes:
       - codepilot-data:/app/.data
 
