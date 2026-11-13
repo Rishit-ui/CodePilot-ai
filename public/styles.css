@@ -1824,3 +1824,9 @@ kbd {
 
 /* SVG arrowhead color in light mode */
 [data-theme="dark"] marker polygon { fill: var(--border-strong); }
+/* Auth boundary */
+.auth-gate { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgba(26, 24, 18, 0.78); backdrop-filter: blur(8px); }
+.auth-gate.hidden { display: none; }
+.auth-card { width: min(420px, 100%); display: grid; gap: 1rem; padding: 2rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-surface); box-shadow: var(--shadow-lg); }
+.auth-brand { margin-bottom: .25rem; }
+.auth-card h1 { margin: 0; }

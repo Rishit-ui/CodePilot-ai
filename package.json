@@ -10,9 +10,14 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test tests/**/*.test.js",
-    "check": "node --check api/index.js && node --check \"api/[...path].js\" && node --check src/server.cjs && node --check src/server.js && node --check src/db.js && node --check src/rate_limit.js && node --check src/execution/provider.js && node --check src/execution/vercel_sandbox_provider.js && node --check src/execution/orchestrator.js && node --check src/queue/vercel_queue.js && node --check src/queue/consumer.js && node --check src/storage/vercel_blob.js && node --check src/flow.js && node --check src/analyzer.js && node --check src/archive.js && node --check src/importer.js && node --check src/architecture.js && node --check src/ai.js && node --check src/planner.js && node --check src/docker.js && node --check src/deployer.js && node --check src/test_runner.js"
+    "test:e2e": "playwright test",
+    "benchmark:impact": "node scripts/phase4/impact-benchmark.js",
+    "benchmark:performance": "node scripts/phase4/performance-benchmark.js",
+    "check": "node --check api/index.js && node --check \"api/[...path].js\" && node --check src/server.cjs && node --check src/server.js && node --check src/db.js && node --check src/rate_limit.js && node --check src/parsing/source.js && node --check src/impact/analyzer.js && node --check src/impact/graph.js && node --check src/impact/reconcile.js && node --check src/impact/invalidation.js && node --check src/impact/impact.js && node --check src/impact/test-selector.js && node --check src/execution/provider.js && node --check src/execution/vercel_sandbox_provider.js && node --check src/execution/orchestrator.js && node --check src/queue/vercel_queue.js && node --check src/queue/consumer.js && node --check src/storage/vercel_blob.js && node --check src/flow.js && node --check src/analyzer.js && node --check src/archive.js && node --check src/importer.js && node --check src/architecture.js && node --check src/ai.js && node --check src/planner.js && node --check src/docker.js && node --check src/deployer.js && node --check src/test_runner.js && node --check scripts/phase4/impact-benchmark.js && node --check scripts/phase4/performance-benchmark.js && node --check playwright.config.js"
   },
   "dependencies": {
+    "@babel/parser": "^8.1.2",
+    "@lezer/python": "^1.1.19",
     "@vercel/blob": "^2.9.0",
     "@vercel/queue": "^0.11.0",
     "@vercel/sandbox": "^4.0.0",
@@ -24,5 +29,8 @@
   "overrides": {
     "minimatch": "11.0.1",
     "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
   }
 }

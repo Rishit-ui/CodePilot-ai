@@ -1,4 +1,6 @@
-# Empirical Experiment Results & Analysis
+# Empirical Experiment Results & Analysis (Legacy Phase 0 Run)
+
+> Superseded for current validation by `docs/phase-4/EXPERIMENT_RESULTS.md` and `results/impact-engine/phase4_benchmark_results.json`. This legacy three-scenario synthetic run does not establish general accuracy, novelty, or patentability.
 
 **Document Status:** Empirical Measurements  
 **Date:** 2026-10-29  

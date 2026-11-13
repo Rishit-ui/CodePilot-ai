@@ -1,0 +1,20 @@
+{
+  "datasetVersion": 1,
+  "description": "Controlled synthetic dependency and regression-selection fixtures. Ground truth is declared from the fixture topology, not inferred from CodePilot output.",
+  "limitations": [
+    "Synthetic JavaScript/CommonJS only.",
+    "Regression ground truth is predetermined by injected dependency mutations; it is not production telemetry.",
+    "Results do not establish novelty, patentability, or superiority on external repositories."
+  ],
+  "scenarios": [
+    { "id": "direct", "changedFiles": ["src/utils/math.js"], "regressionTests": ["tests/math.test.js"] },
+    { "id": "transitive", "changedFiles": ["src/core/database.js"], "regressionTests": ["tests/database.test.js", "tests/checkout.test.js"] },
+    { "id": "cross-module", "changedFiles": ["src/services/orderService.js"], "regressionTests": ["tests/checkout.test.js"] },
+    { "id": "configuration", "changedFiles": ["package.json"], "regressionTests": ["tests/math.test.js", "tests/string.test.js", "tests/checkout.test.js", "tests/database.test.js"] },
+    { "id": "api-contract", "changedFiles": ["src/controllers/checkoutController.js"], "regressionTests": ["tests/checkout.test.js"] },
+    { "id": "conflicting-evidence", "changedFiles": ["src/services/orderService.js"], "regressionTests": ["tests/checkout.test.js"], "injectConflict": true },
+    { "id": "stale-evidence", "changedFiles": ["src/core/database.js"], "regressionTests": ["tests/database.test.js", "tests/checkout.test.js"], "invalidateEvidence": true },
+    { "id": "deleted-file", "changedFiles": ["src/utils/string.js"], "regressionTests": ["tests/string.test.js"] },
+    { "id": "renamed-file", "changedFiles": ["src/utils/string.js"], "regressionTests": ["tests/string.test.js"] }
+  ]
+}

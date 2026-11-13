@@ -1288,10 +1288,43 @@ class Store {
 
   async applyPatch(patchId, actorId = null) {
     const patch = await this.getPatch(patchId);
-    if (!patch) return null;
+    if (!patch || patch.status !== 'draft') return null;
+    const current = await this.get('SELECT content FROM files WHERE revision_id=? AND path=?', patch.revision_id, patch.target_file);
+    if (!current) return { error: 'TARGET_NOT_FOUND', patch };
+    if ((current.content || '') !== (patch.original_content || '')) return { error: 'REVISION_CONFLICT', patch };
     const appliedAt = now();
-    await this.run("UPDATE patches SET status = 'applied', applied_at = ? WHERE id = ?", appliedAt, patchId);
-    await this.run("UPDATE files SET content = ? WHERE revision_id = ? AND path = ?", patch.patched_content, patch.revision_id, patch.target_file);
+    if (this.dialect === 'postgres') {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        const fileUpdate = await client.query(
+          'UPDATE files SET content=$1 WHERE revision_id=$2 AND path=$3 AND COALESCE(content, \'\')=$4',
+          [patch.patched_content, patch.revision_id, patch.target_file, patch.original_content || '']
+        );
+        if (fileUpdate.rowCount !== 1) throw new Error('REVISION_CONFLICT');
+        const patchUpdate = await client.query("UPDATE patches SET status='applied', applied_at=$1 WHERE id=$2 AND status='draft'", [appliedAt, patchId]);
+        if (patchUpdate.rowCount !== 1) throw new Error('PATCH_STATE_CONFLICT');
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (['REVISION_CONFLICT', 'PATCH_STATE_CONFLICT'].includes(error.message)) return { error: error.message, patch };
+        throw error;
+      } finally { client.release(); }
+    } else {
+      this.sqlite.exec('BEGIN IMMEDIATE');
+      try {
+        const fileUpdate = this.sqlite.prepare("UPDATE files SET content=? WHERE revision_id=? AND path=? AND COALESCE(content, '')=?")
+          .run(patch.patched_content, patch.revision_id, patch.target_file, patch.original_content || '');
+        if (fileUpdate.changes !== 1) throw new Error('REVISION_CONFLICT');
+        const patchUpdate = this.sqlite.prepare("UPDATE patches SET status='applied', applied_at=? WHERE id=? AND status='draft'").run(appliedAt, patchId);
+        if (patchUpdate.changes !== 1) throw new Error('PATCH_STATE_CONFLICT');
+        this.sqlite.exec('COMMIT');
+      } catch (error) {
+        this.sqlite.exec('ROLLBACK');
+        if (['REVISION_CONFLICT', 'PATCH_STATE_CONFLICT'].includes(error.message)) return { error: error.message, patch };
+        throw error;
+      }
+    }
     await this.audit('patch.applied', patch.project_id, `Applied patch ${patch.title} to ${patch.target_file}`, actorId);
     return { ...patch, status: 'applied', applied_at: appliedAt };
   }
@@ -1299,8 +1332,41 @@ class Store {
   async rollbackPatch(patchId, actorId = null) {
     const patch = await this.getPatch(patchId);
     if (!patch || patch.status !== 'applied') return null;
-    await this.run("UPDATE patches SET status = 'rolled_back' WHERE id = ?", patchId);
-    await this.run("UPDATE files SET content = ? WHERE revision_id = ? AND path = ?", patch.original_content, patch.revision_id, patch.target_file);
+    const current = await this.get('SELECT content FROM files WHERE revision_id=? AND path=?', patch.revision_id, patch.target_file);
+    if (!current) return { error: 'TARGET_NOT_FOUND', patch };
+    if ((current.content || '') !== (patch.patched_content || '')) return { error: 'REVISION_CONFLICT', patch };
+    if (this.dialect === 'postgres') {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        const fileUpdate = await client.query(
+          'UPDATE files SET content=$1 WHERE revision_id=$2 AND path=$3 AND COALESCE(content, \'\')=$4',
+          [patch.original_content, patch.revision_id, patch.target_file, patch.patched_content || '']
+        );
+        if (fileUpdate.rowCount !== 1) throw new Error('REVISION_CONFLICT');
+        const patchUpdate = await client.query("UPDATE patches SET status='rolled_back' WHERE id=$1 AND status='applied'", [patchId]);
+        if (patchUpdate.rowCount !== 1) throw new Error('PATCH_STATE_CONFLICT');
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (['REVISION_CONFLICT', 'PATCH_STATE_CONFLICT'].includes(error.message)) return { error: error.message, patch };
+        throw error;
+      } finally { client.release(); }
+    } else {
+      this.sqlite.exec('BEGIN IMMEDIATE');
+      try {
+        const fileUpdate = this.sqlite.prepare("UPDATE files SET content=? WHERE revision_id=? AND path=? AND COALESCE(content, '')=?")
+          .run(patch.original_content, patch.revision_id, patch.target_file, patch.patched_content || '');
+        if (fileUpdate.changes !== 1) throw new Error('REVISION_CONFLICT');
+        const patchUpdate = this.sqlite.prepare("UPDATE patches SET status='rolled_back' WHERE id=? AND status='applied'").run(patchId);
+        if (patchUpdate.changes !== 1) throw new Error('PATCH_STATE_CONFLICT');
+        this.sqlite.exec('COMMIT');
+      } catch (error) {
+        this.sqlite.exec('ROLLBACK');
+        if (['REVISION_CONFLICT', 'PATCH_STATE_CONFLICT'].includes(error.message)) return { error: error.message, patch };
+        throw error;
+      }
+    }
     await this.audit('patch.rolled_back', patch.project_id, `Rolled back patch ${patch.title} for ${patch.target_file}`, actorId);
     return { ...patch, status: 'rolled_back' };
   }

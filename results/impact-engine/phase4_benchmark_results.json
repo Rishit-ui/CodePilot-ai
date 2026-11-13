@@ -1,0 +1,722 @@
+{
+  "generatedAt": "2026-11-13T18:48:40.710Z",
+  "datasetVersion": 1,
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "cpuCount": 16
+  },
+  "methodology": "Controlled synthetic dependency mutations with independently declared expected regression-test sets.",
+  "scenarios": [
+    {
+      "id": "direct",
+      "changedFiles": [
+        "src/utils/math.js"
+      ],
+      "regressionTests": [
+        "tests/math.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/math.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/math.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/math.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "transitive",
+      "changedFiles": [
+        "src/core/database.js"
+      ],
+      "regressionTests": [
+        "tests/database.test.js",
+        "tests/checkout.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 2,
+          "falsePositive": 2,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.5,
+          "precision": 0.5,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/database.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 2,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0.5,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/database.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 2,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0.5,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js"
+          ],
+          "selectedCount": 2,
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 2,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "cross-module",
+      "changedFiles": [
+        "src/services/orderService.js"
+      ],
+      "regressionTests": [
+        "tests/checkout.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 3,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "coverage": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 3,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "configuration",
+      "changedFiles": [
+        "package.json"
+      ],
+      "regressionTests": [
+        "tests/math.test.js",
+        "tests/string.test.js",
+        "tests/checkout.test.js",
+        "tests/database.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 4,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 4,
+          "trueNegative": 0,
+          "accuracy": 0,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 4
+        },
+        "coverage": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 4,
+          "trueNegative": 0,
+          "accuracy": 0,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 4
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 4,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "api-contract",
+      "changedFiles": [
+        "src/controllers/checkoutController.js"
+      ],
+      "regressionTests": [
+        "tests/checkout.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/checkout.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/checkout.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "conflicting-evidence",
+      "changedFiles": [
+        "src/services/orderService.js"
+      ],
+      "regressionTests": [
+        "tests/checkout.test.js"
+      ],
+      "injectConflict": true,
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 3,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "coverage": {
+          "selectedTests": [],
+          "selectedCount": 0,
+          "truePositive": 0,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 3,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "stale-evidence",
+      "changedFiles": [
+        "src/core/database.js"
+      ],
+      "regressionTests": [
+        "tests/database.test.js",
+        "tests/checkout.test.js"
+      ],
+      "invalidateEvidence": true,
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 2,
+          "falsePositive": 2,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.5,
+          "precision": 0.5,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/database.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 2,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0.5,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/database.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 1,
+          "trueNegative": 2,
+          "accuracy": 0.75,
+          "precision": 1,
+          "recall": 0.5,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 1
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js"
+          ],
+          "selectedCount": 2,
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 2,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "deleted-file",
+      "changedFiles": [
+        "src/utils/string.js"
+      ],
+      "regressionTests": [
+        "tests/string.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    },
+    {
+      "id": "renamed-file",
+      "changedFiles": [
+        "src/utils/string.js"
+      ],
+      "regressionTests": [
+        "tests/string.test.js"
+      ],
+      "outcomes": {
+        "all": {
+          "selectedTests": [
+            "tests/checkout.test.js",
+            "tests/database.test.js",
+            "tests/math.test.js",
+            "tests/string.test.js"
+          ],
+          "selectedCount": 4,
+          "truePositive": 1,
+          "falsePositive": 3,
+          "falseNegative": 0,
+          "trueNegative": 0,
+          "accuracy": 0.25,
+          "precision": 0.25,
+          "recall": 1,
+          "falsePositiveRate": 1,
+          "missedDependencyCount": 0
+        },
+        "changed-file": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "coverage": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        },
+        "evidence-aware": {
+          "selectedTests": [
+            "tests/string.test.js"
+          ],
+          "selectedCount": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "accuracy": 1,
+          "precision": 1,
+          "recall": 1,
+          "falsePositiveRate": 0,
+          "missedDependencyCount": 0
+        }
+      }
+    }
+  ],
+  "performance": [
+    {
+      "sourceFileCount": 50,
+      "totalFixtureFiles": 60,
+      "graphNodes": 121,
+      "graphEdges": 189,
+      "fullRebuildAverageMs": 11.139566666666667,
+      "incrementalAverageMs": 1.7888666666666684,
+      "incrementalToFullRatio": 0.16058673736560683,
+      "heapDeltaBytes": 1231888,
+      "fullRebuildEquivalent": true,
+      "equivalenceDifferences": []
+    },
+    {
+      "sourceFileCount": 200,
+      "totalFixtureFiles": 210,
+      "graphNodes": 421,
+      "graphEdges": 639,
+      "fullRebuildAverageMs": 20.05696666666667,
+      "incrementalAverageMs": 3.585033333333333,
+      "incrementalToFullRatio": 0.17874254830823533,
+      "heapDeltaBytes": 9570328,
+      "fullRebuildEquivalent": true,
+      "equivalenceDifferences": []
+    },
+    {
+      "sourceFileCount": 1000,
+      "totalFixtureFiles": 1010,
+      "graphNodes": 2021,
+      "graphEdges": 3039,
+      "fullRebuildAverageMs": 64.11799999999998,
+      "incrementalAverageMs": 15.242866666666657,
+      "incrementalToFullRatio": 0.2377314742609979,
+      "heapDeltaBytes": 27667776,
+      "fullRebuildEquivalent": true,
+      "equivalenceDifferences": []
+    }
+  ],
+  "limitations": [
+    "Synthetic JavaScript/CommonJS only.",
+    "Regression ground truth is predetermined by injected dependency mutations; it is not production telemetry.",
+    "Results do not establish novelty, patentability, or superiority on external repositories."
+  ]
+}

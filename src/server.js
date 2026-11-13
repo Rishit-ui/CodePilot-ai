@@ -126,6 +126,13 @@ function requiredProjectPermission(method, pathname) {
   return 'write';
 }
 
+function isSafeRepositoryPath(candidate) {
+  if (typeof candidate !== 'string' || !candidate || candidate.includes('\0') || candidate.includes('\\')) return false;
+  if (candidate.startsWith('/') || /^[A-Za-z]:/.test(candidate)) return false;
+  const normalized = path.posix.normalize(candidate);
+  return normalized === candidate && !normalized.split('/').some((part) => part === '..' || part === '.' || part === '');
+}
+
 function nestedResource(pathname) {
   const patterns = [
     ['finding', /^\/api\/projects\/[^/]+\/findings\/([^/]+)\/suppress$/],
@@ -1307,8 +1314,12 @@ function createApp(options = {}) {
         if (!targetFile || newContent === undefined) {
           return error(response, 422, 'FIELDS_REQUIRED', 'targetFile and newContent are required.');
         }
+        if (!isSafeRepositoryPath(targetFile)) {
+          return error(response, 422, 'INVALID_TARGET_PATH', 'targetFile must be a normalized repository-relative path.');
+        }
         const currentFile = await store.get('SELECT content FROM files WHERE revision_id=? AND path=?', context.revision.id, targetFile);
-        const originalContent = currentFile ? currentFile.content || '' : '';
+        if (!currentFile) return error(response, 404, 'TARGET_FILE_NOT_FOUND', 'The patch target does not exist in the selected revision.');
+        const originalContent = currentFile.content || '';
         const diff = createUnifiedDiff(targetFile, originalContent, newContent);
         const patch = await store.createPatch(
           context.project.id,
@@ -1328,6 +1339,7 @@ function createApp(options = {}) {
         const patchId = patchApplyMatch[2];
         const applied = await store.applyPatch(patchId, currentUser?.id);
         if (!applied) return error(response, 404, 'PATCH_NOT_FOUND', 'Patch not found or already applied.');
+        if (applied.error) return error(response, 409, applied.error, 'Patch application was blocked because the revision or patch state changed.');
         return json(response, 200, { patch: applied, requestId });
       }
 
@@ -1336,6 +1348,7 @@ function createApp(options = {}) {
         const patchId = patchRollbackMatch[2];
         const rolledBack = await store.rollbackPatch(patchId, currentUser?.id);
         if (!rolledBack) return error(response, 404, 'PATCH_NOT_FOUND', 'Patch not found or not in applied state.');
+        if (rolledBack.error) return error(response, 409, rolledBack.error, 'Patch rollback was blocked because the revision or patch state changed.');
         return json(response, 200, { patch: rolledBack, requestId });
       }
 

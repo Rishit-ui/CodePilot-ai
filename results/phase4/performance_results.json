@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-11-13T19:00:01.126Z",
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "cpuCount": 16,
+    "totalMemoryBytes": 16989736960
+  },
+  "repositorySizes": [
+    {
+      "files": 50,
+      "bytes": 4507,
+      "indexingAndParsingMs": 16.75799999999998,
+      "parserThroughputFilesPerSecond": 2983.649600190957,
+      "graphConstructionMs": 9.392799999999966,
+      "graphNodes": 101,
+      "graphEdges": 149,
+      "graphSerializationMs": 1.4483000000000175,
+      "serializedGraphBytes": 102074,
+      "heapDeltaBytes": 638192
+    },
+    {
+      "files": 200,
+      "bytes": 18704,
+      "indexingAndParsingMs": 20.721299999999985,
+      "parserThroughputFilesPerSecond": 9651.904079377267,
+      "graphConstructionMs": 18.285799999999995,
+      "graphNodes": 401,
+      "graphEdges": 599,
+      "graphSerializationMs": 2.279700000000048,
+      "serializedGraphBytes": 412924,
+      "heapDeltaBytes": 2602168
+    },
+    {
+      "files": 1000,
+      "bytes": 95504,
+      "indexingAndParsingMs": 52.62889999999993,
+      "parserThroughputFilesPerSecond": 19000.96714922792,
+      "graphConstructionMs": 54.99789999999996,
+      "graphNodes": 2001,
+      "graphEdges": 2999,
+      "graphSerializationMs": 8.57669999999996,
+      "serializedGraphBytes": 2079930,
+      "heapDeltaBytes": 10605256
+    }
+  ],
+  "persistence": {
+    "files": 200,
+    "revisionSaveMs": 13.353500000000054,
+    "fileRetrievalMs": 0.4696999999999889,
+    "retrievedFiles": 200,
+    "reportGenerationMs": 2.2104000000000497,
+    "reportSections": 15
+  },
+  "repeatedProcessing": {
+    "iterations": 10,
+    "filesPerIteration": 200,
+    "durationsMs": [
+      9.48090000000002,
+      7.196300000000065,
+      6.862199999999916,
+      7.571000000000026,
+      6.468999999999937,
+      7.215900000000033,
+      6.268499999999904,
+      6.411899999999946,
+      6.804399999999987,
+      5.829299999999989
+    ],
+    "heapDeltaBytes": 574416,
+    "note": "Heap delta is a coarse process-level observation, not proof of a leak or absence of one."
+  },
+  "localApi": {
+    "endpoint": "/api/health",
+    "samples": 20,
+    "averageMs": 1.0187349999999924,
+    "minMs": 0.3050999999998112,
+    "maxMs": 11.610799999999927
+  },
+  "limitations": [
+    "Synthetic in-memory source fixtures.",
+    "Single Windows workstation and SQLite.",
+    "No browser graph-frame benchmark.",
+    "No managed PostgreSQL, queue, storage, sandbox, or network-latency measurement."
+  ]
+}

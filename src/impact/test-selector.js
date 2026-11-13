@@ -5,6 +5,7 @@ const { ChangeImpactEngine } = require('./impact');
 const SelectionStrategy = Object.freeze({
   ALL: 'all',                          // Baseline 1: Run 100% of discovered tests
   CHANGED_FILE: 'changed-file',        // Baseline 2: Simple changed-file / direct import
+  COVERAGE: 'coverage',                // Baseline 3: Stored coverage relationships only
   EVIDENCE_AWARE: 'evidence-aware'     // Proposed: Multi-provenance, transitive, and uncertainty-elevated
 });
 
@@ -107,8 +108,24 @@ class RegressionTestSelector {
           });
         }
       }
+    } else if (activeStrategy === SelectionStrategy.COVERAGE) {
+      const changedIds = new Set(changedFilePaths.map((filePath) => `file:${filePath}`));
+      for (const testNode of allTests) {
+        const coverageEdges = graph.getOutEdges(testNode.id).filter((edge) => edge.type === EdgeType.COVERS);
+        const matched = coverageEdges.find((edge) => changedIds.has(edge.targetId));
+        const selected = Boolean(matched);
+        if (selected) {
+          testFileSet.add(testNode.filePath);
+          selectedTestNodes.push(testNode);
+        }
+        decisions.push({
+          testId: testNode.id, testFile: testNode.filePath, testName: testNode.name, selected,
+          selectionReason: selected ? `Stored coverage relationship targets ${matched.targetId}.` : 'No stored coverage relationship targets a changed file.',
+          strategy: activeStrategy
+        });
+      }
     } else {
-      // Strategy C: Evidence-Aware Selection (Proposed Method)
+      // Strategy D: Evidence-aware selection using graph provenance and uncertainty
       const affectedIds = new Set();
 
       // Collect all directly and transitively affected node IDs

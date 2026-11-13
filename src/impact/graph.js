@@ -39,7 +39,8 @@ const ValidationStatus = Object.freeze({
   RUNTIME_OBSERVED: 'observed',       // Observed in actual execution trace
   CONTRACT_DERIVED: 'contract',       // Sourced from route, schema, or configuration contracts
   CONFLICTED: 'conflicted',           // Multiple sources provide contradictory assertions
-  UNRESOLVED: 'unresolved'            // Known ambiguous target, dynamic reflection, or unparsed call
+  UNRESOLVED: 'unresolved',           // Known ambiguous target, dynamic reflection, or unparsed call
+  INVALIDATED: 'invalidated'          // Evidence belongs only to an earlier revision
 });
 
 class DependencyNode {
@@ -161,6 +162,12 @@ class DependencyEdge {
       return;
     }
 
+    if (statuses.has(ValidationStatus.INVALIDATED)) {
+      this.status = ValidationStatus.INVALIDATED;
+      this.isResolved = false;
+      return;
+    }
+
     // Corroborated: static AST + runtime trace agreement
     if (sources.has(EvidenceSource.STATIC_AST) && sources.has(EvidenceSource.RUNTIME_TRACE)) {
       this.status = ValidationStatus.CONFIRMED;
@@ -212,6 +219,7 @@ class DependencyEdge {
 class TypedDependencyGraph {
   constructor(revisionId = null) {
     this.revisionId = revisionId;
+    this.diagnostics = [];
     this.nodes = new Map();
     this.edges = new Map();
     this.outEdges = new Map(); // sourceId -> Set<edgeId>
@@ -342,6 +350,7 @@ class TypedDependencyGraph {
 
   clone() {
     const copy = new TypedDependencyGraph(this.revisionId);
+    copy.diagnostics = this.diagnostics.map((diagnostic) => ({ ...diagnostic }));
     for (const node of this.nodes.values()) {
       copy.addNode(new DependencyNode(node.toJSON()));
     }
@@ -366,6 +375,7 @@ class TypedDependencyGraph {
     let contractCount = 0;
     let conflictedCount = 0;
     let unresolvedCount = 0;
+    let invalidatedCount = 0;
     let totalEvidence = 0;
 
     for (const edge of this.edges.values()) {
@@ -377,6 +387,7 @@ class TypedDependencyGraph {
         case ValidationStatus.CONTRACT_DERIVED: contractCount += 1; break;
         case ValidationStatus.CONFLICTED: conflictedCount += 1; break;
         case ValidationStatus.UNRESOLVED: unresolvedCount += 1; break;
+        case ValidationStatus.INVALIDATED: invalidatedCount += 1; break;
       }
     }
 
@@ -390,15 +401,17 @@ class TypedDependencyGraph {
         observed: observedCount,
         contract: contractCount,
         conflicted: conflictedCount,
-        unresolved: unresolvedCount
+        unresolved: unresolvedCount,
+        invalidated: invalidatedCount
       },
-      resolvedRatio: this.edges.size === 0 ? 1.0 : (this.edges.size - unresolvedCount - conflictedCount) / this.edges.size
+      resolvedRatio: this.edges.size === 0 ? 1.0 : (this.edges.size - unresolvedCount - conflictedCount - invalidatedCount) / this.edges.size
     };
   }
 
   toJSON() {
     return {
       revisionId: this.revisionId,
+      diagnostics: this.diagnostics.map((diagnostic) => ({ ...diagnostic })),
       nodes: Array.from(this.nodes.values()).map((n) => n.toJSON()),
       edges: Array.from(this.edges.values()).map((e) => e.toJSON()),
       metrics: this.computeMetrics()
@@ -408,6 +421,7 @@ class TypedDependencyGraph {
   static fromJSON(data) {
     if (!data || typeof data !== 'object') throw new TypeError('fromJSON requires an object');
     const graph = new TypedDependencyGraph(data.revisionId || null);
+    graph.diagnostics = (data.diagnostics || []).map((diagnostic) => ({ ...diagnostic }));
     for (const n of data.nodes || []) {
       graph.addNode(new DependencyNode(n));
     }

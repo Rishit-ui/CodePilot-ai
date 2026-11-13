@@ -30,6 +30,7 @@ class EvidenceReconciler {
     const decisions = [];
     let conflictedEdges = 0;
     let unresolvedEdges = 0;
+    let invalidatedEdges = 0;
 
     // 1. Ingest external evidence into corresponding graph edges
     for (const evi of externalEvidence) {
@@ -50,12 +51,14 @@ class EvidenceReconciler {
 
       if (edge.status === ValidationStatus.CONFLICTED) conflictedEdges += 1;
       if (edge.status === ValidationStatus.UNRESOLVED) unresolvedEdges += 1;
+      if (edge.status === ValidationStatus.INVALIDATED) invalidatedEdges += 1;
     }
 
     return {
       reconciledEdges: graph.edges.size,
       conflictedEdges,
       unresolvedEdges,
+      invalidatedEdges,
       decisions
     };
   }
@@ -94,6 +97,17 @@ class EvidenceReconciler {
     const hasRuntime = currentEvidence.some((e) => e.source === EvidenceSource.RUNTIME_TRACE);
     const hasContract = currentEvidence.some((e) => e.source === EvidenceSource.API_CONTRACT || e.source === EvidenceSource.CONFIG_MANIFEST);
     const hasCoverage = currentEvidence.some((e) => e.source === EvidenceSource.COVERAGE_MAP);
+
+    if (currentEvidence.length === 0 && staleEvidence.length > 0) {
+      edge.status = ValidationStatus.INVALIDATED;
+      edge.isResolved = false;
+      return {
+        edgeId,
+        decision: 'invalidated-stale-evidence',
+        status: ValidationStatus.INVALIDATED,
+        explanation: 'All evidence belongs to an earlier revision and cannot establish the relationship in the active revision.'
+      };
+    }
 
     // Rule 1: Contradiction Detection
     // When runtime trace explicitly reports an error or absence while static claims confirmed,

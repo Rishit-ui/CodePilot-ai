@@ -73,6 +73,6 @@ The specific **combination** of:
 3. Incremental graph invalidation with full-rebuild fallback
 4. Three-strategy test selection with reduction metrics and recall guarantee
 
-...represents a design choice, not a fundamentally novel algorithm. Each individual component has documented prior art. The combination may constitute a **novel arrangement** but patent eligibility requires professional legal assessment.
+...represents a design choice, not evidence of a fundamentally novel algorithm. Each individual component has documented related work. Whether the particular implementation contributes anything technically distinct requires a professional search and element-by-element comparison; no novelty conclusion is made here.
 
 See `PATENT_AGENT_BRIEF.md` for guidance on next steps.

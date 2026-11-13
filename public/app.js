@@ -1,5 +1,7 @@
 // CodePilot AI — Professional Client-Side Application Controller
 const state = {
+  authMode: 'login',
+  currentUser: null,
   projects: [],
   activeProject: null,
   activeRevision: null,
@@ -27,12 +29,53 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
 async function api(url, options = {}) {
-  const res = await fetch(url, options);
+  const token = localStorage.getItem('codepilot_session');
+  const headers = { ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { ...options, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 401 && !url.startsWith('/api/auth/')) showAuthGate();
     throw new Error(data.error?.message || `Request failed with HTTP ${res.status}`);
   }
   return data;
+}
+
+function showAuthGate(message = '') {
+  $('#auth-gate')?.classList.remove('hidden');
+  if (message) showFeedback('#auth-feedback', message, true);
+}
+
+function hideAuthGate() {
+  $('#auth-gate')?.classList.add('hidden');
+  showFeedback('#auth-feedback', '');
+}
+
+function renderAuthMode() {
+  const registering = state.authMode === 'register';
+  $('#auth-title').textContent = registering ? 'Create account' : 'Sign in';
+  $('#auth-description').textContent = registering
+    ? 'Create an account with a strong password to own and isolate your projects.'
+    : 'Authenticate to access your project workspaces.';
+  $('#auth-name-group').classList.toggle('hidden', !registering);
+  $('#auth-name').required = registering;
+  $('#auth-password').autocomplete = registering ? 'new-password' : 'current-password';
+  $('#auth-submit').textContent = registering ? 'Create account' : 'Sign in';
+  $('#auth-mode-toggle').textContent = registering ? 'Already have an account' : 'Create an account';
+}
+
+async function authenticateSession() {
+  const token = localStorage.getItem('codepilot_session');
+  if (!token) return showAuthGate();
+  try {
+    const result = await api('/api/auth/me');
+    state.currentUser = result.user;
+    hideAuthGate();
+    await loadProjects();
+  } catch {
+    localStorage.removeItem('codepilot_session');
+    showAuthGate('Your session is invalid or expired. Please sign in again.');
+  }
 }
 
 function showFeedback(selector, message, isError = false) {
@@ -67,6 +110,14 @@ async function checkHealth() {
     const health = await api('/api/health');
     pill.textContent = `Online · v${health.version}`;
     pill.className = 'pill pill-online';
+    const executionBlocked = !health.capabilities?.executionReleaseVerified;
+    for (const id of ['#btn-run-tests', '#btn-impact-run']) {
+      const control = $(id);
+      if (control) {
+        control.disabled = executionBlocked;
+        control.title = executionBlocked ? 'Execution is disabled pending isolated-worker adversarial verification.' : '';
+      }
+    }
   } catch {
     pill.textContent = 'Service Offline';
     pill.className = 'pill pill-idle';
@@ -932,6 +983,14 @@ function initApiStudio() {
 // ==========================================================================
 async function loadDbSchema() {
   if (!state.activeProject) return;
+  if (!state.currentUser?.is_global_admin) {
+    $('#db-dialect-badge').textContent = 'Restricted';
+    $('#db-tables-list').innerHTML = '<p class="muted">Platform database inspection is available only to global administrators.</p>';
+    $('#db-query-telemetry').textContent = 'Administrator access required.';
+    $('#db-sql-input').disabled = true;
+    $('#btn-run-sql').disabled = true;
+    return;
+  }
   try {
     const data = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/db-schema`);
     $('#db-dialect-badge').textContent = data.dialect;
@@ -1219,7 +1278,40 @@ window.addEventListener('DOMContentLoaded', () => {
   initCodeAiActions();
   initApiStudio();
   initDbStudio();
-  loadProjects();
+  renderAuthMode();
+  authenticateSession();
+
+  $('#auth-mode-toggle')?.addEventListener('click', () => {
+    state.authMode = state.authMode === 'login' ? 'register' : 'login';
+    renderAuthMode();
+    showFeedback('#auth-feedback', '');
+  });
+  $('#auth-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = {
+      email: $('#auth-email').value.trim(),
+      password: $('#auth-password').value,
+      ...(state.authMode === 'register' ? { name: $('#auth-name').value.trim() } : {})
+    };
+    try {
+      const result = await api(`/api/auth/${state.authMode}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      localStorage.setItem('codepilot_session', result.token);
+      state.currentUser = result.user;
+      hideAuthGate();
+      await loadProjects();
+    } catch (error) {
+      showFeedback('#auth-feedback', error.message, true);
+    }
+  });
+  $('#btn-sign-out')?.addEventListener('click', () => {
+    localStorage.removeItem('codepilot_session');
+    state.currentUser = null;
+    state.activeProject = null;
+    state.projects = [];
+    showAuthGate('Signed out.');
+  });
 
   // Sidebar toggle
   $('#btn-sidebar-toggle')?.addEventListener('click', () => {
@@ -1362,7 +1454,7 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       showFeedback('#import-feedback', 'Repository revision successfully ingested and analyzed!');
       await loadProjects();
-      selectProject(state.activeProject);
+      await selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', err.message, true);
     }
@@ -1396,7 +1488,7 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       showFeedback('#import-feedback', '✅ GitHub repository successfully ingested, indexed, and analyzed!');
       await loadProjects();
-      selectProject(state.activeProject);
+      await selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', `GitHub import failed: ${err.message}`, true);
     }
@@ -1429,7 +1521,7 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       showFeedback('#import-feedback', 'Remote repository successfully fetched and indexed!');
       await loadProjects();
-      selectProject(state.activeProject);
+      await selectProject(state.activeProject);
     } catch (err) {
       showFeedback('#import-feedback', err.message, true);
     }

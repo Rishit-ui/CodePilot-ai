@@ -1,4 +1,5 @@
 const path = require('node:path').posix;
+const crypto = require('node:crypto');
 const { analyzeJavaScript } = require('./analyzers/javascript');
 const { analyzePython } = require('./analyzers/python');
 const { analyzeDockerfile, analyzeDockerCompose } = require('./analyzers/docker');
@@ -50,6 +51,37 @@ function redact(content) {
     .replace(/(postgres|mysql|mongodb(?:\+srv)?):\/\/[^:]+:([^@]+)@/gi, '$1://[REDACTED_USER]:[REDACTED_PASSWORD]@');
 }
 
+function sha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+function buildIngestionReport(files, analysisEvidence = []) {
+  const evidenceByPath = new Map(analysisEvidence.map((item) => [item.filePath, item]));
+  const items = files.map((file) => {
+    const parser = evidenceByPath.get(file.path) || null;
+    let status = 'processed';
+    let analysisLevel = parser ? 'ast' : 'inventory';
+    let reason = null;
+    if (file.excludedReason) {
+      status = 'excluded';
+      analysisLevel = 'none';
+      reason = file.excludedReason;
+    } else if (file.language === 'Unknown') {
+      status = 'unsupported';
+      analysisLevel = 'inventory';
+      reason = 'extension-not-supported-for-semantic-analysis';
+    } else if (parser?.errors?.length) {
+      status = parser.recovered ? 'partially-processed' : 'failed-analysis';
+      reason = parser.errors.map((error) => error.message).join('; ');
+    }
+    return { path: file.path, bytes: file.bytes, sha256: file.sha256, language: file.language, status, analysisLevel, reason };
+  });
+  return {
+    totals: items.reduce((counts, item) => ({ ...counts, [item.status]: (counts[item.status] || 0) + 1 }), {}),
+    files: items
+  };
+}
+
 function analyze(entries) {
   const files = [];
   const symbols = [];
@@ -59,6 +91,7 @@ function analyze(entries) {
   const entrypoints = [];
   const routes = [];
   const databaseEntities = [];
+  const analysisEvidence = [];
   const candidates = new Set(entries.map((e) => e.path));
 
   for (const entry of entries) {
@@ -71,6 +104,7 @@ function analyze(entries) {
       path: entry.path,
       language: lang,
       bytes: entry.bytes,
+      sha256: entry.isOversized ? null : sha256(entry.data),
       content,
       excludedReason: excluded
     });
@@ -95,12 +129,20 @@ function analyze(entries) {
       edges.push(...res.edges);
       routes.push(...res.routes);
       res.frameworks.forEach((f) => frameworks.add(f));
+      analysisEvidence.push({ filePath: entry.path, language: lang, ...res.parser });
+      for (const error of res.parser.errors) {
+        findings.push({ severity: 'medium', category: 'parser', message: `Parser could not fully analyze ${entry.path}: ${error.message}`, filePath: entry.path, line: error.line, evidence: res.parser.name });
+      }
     } else if (lang === 'Python') {
       const res = analyzePython(entry.path, content);
       symbols.push(...res.symbols);
       edges.push(...res.edges);
       routes.push(...res.routes);
       res.frameworks.forEach((f) => frameworks.add(f));
+      analysisEvidence.push({ filePath: entry.path, language: lang, ...res.parser });
+      for (const error of res.parser.errors) {
+        findings.push({ severity: 'medium', category: 'parser', message: `Parser could not fully analyze ${entry.path}: ${error.message}`, filePath: entry.path, line: error.line, evidence: res.parser.name });
+      }
     } else if (lang === 'Dockerfile') {
       const res = analyzeDockerfile(entry.path, content);
       symbols.push(...res.symbols);
@@ -187,6 +229,7 @@ function analyze(entries) {
     });
   }
 
+  const ingestionReport = buildIngestionReport(files, analysisEvidence);
   return {
     files,
     symbols,
@@ -196,7 +239,9 @@ function analyze(entries) {
       frameworks: Array.from(frameworks),
       entrypoints,
       routes,
-      databaseEntities
+      databaseEntities,
+      analysisEvidence,
+      ingestionReport
     }
   };
 }
@@ -204,5 +249,6 @@ function analyze(entries) {
 module.exports = {
   analyze,
   languageFor,
-  redact
+  redact,
+  buildIngestionReport
 };

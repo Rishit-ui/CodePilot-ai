@@ -1,74 +1,38 @@
-function lineOf(content, index) {
-  return content.slice(0, index).split('\n').length;
-}
+const { parsePython } = require('../parsing/source');
 
 function analyzePython(filePath, content) {
-  const symbols = [];
-  const edges = [];
-  const routes = [];
+  const parsed = parsePython(content);
   const frameworks = new Set();
+  const roots = new Set(parsed.imports.map((entry) => entry.specifier.replace(/^\.+/, '').split('.')[0]));
+  if (roots.has('fastapi')) frameworks.add('FastAPI');
+  if (roots.has('flask')) frameworks.add('Flask');
+  if (roots.has('django')) frameworks.add('Django');
 
-  if (content.includes('from fastapi') || content.includes('import fastapi') || content.includes('FastAPI()')) {
-    frameworks.add('FastAPI');
+  const symbols = parsed.symbols.map((symbol) => ({
+    filePath, kind: symbol.kind, name: symbol.name, line: symbol.line,
+    evidence: parsed.evidence, parser: parsed.parser
+  }));
+  for (const imported of parsed.imports) {
+    symbols.push({ filePath, kind: 'import', name: imported.specifier, line: imported.line, evidence: parsed.evidence, parser: parsed.parser });
   }
-  if (content.includes('from flask') || content.includes('import flask') || content.includes('Flask(')) {
-    frameworks.add('Flask');
-  }
-  if (content.includes('django') || content.includes('models.Model') || content.includes('django.urls')) {
-    frameworks.add('Django');
-  }
-
-  // Symbol extraction: def, async def, class
-  const symbolPattern = /^[ \t]*(?:async\s+)?(def|class)\s+([A-Za-z_][A-Za-z0-9_]*)/gm;
-  for (const match of content.matchAll(symbolPattern)) {
+  for (const route of parsed.routes) {
     symbols.push({
-      filePath,
-      kind: match[1],
-      name: match[2],
-      line: lineOf(content, match.index)
+      filePath, kind: `route:${route.method.toLowerCase()}`, name: `${route.method} ${route.path}`,
+      line: route.line, evidence: parsed.evidence, parser: parsed.parser
     });
   }
-
-  // Import extraction: from x import y, import x
-  const importPattern = /^[ \t]*(?:from\s+([A-Za-z0-9_.]+)\s+import|import\s+([A-Za-z0-9_.]+))/gm;
-  for (const match of content.matchAll(importPattern)) {
-    const pkg = match[1] || match[2];
-    symbols.push({
-      filePath,
-      kind: 'import',
-      name: pkg,
-      line: lineOf(content, match.index)
-    });
-    edges.push({
-      sourcePath: filePath,
-      targetPath: `pkg:${pkg.split('.')[0]}`,
-      type: 'depends-on-package',
-      confidence: 'confirmed',
-      line: lineOf(content, match.index),
-      provenance: 'python-import'
-    });
-  }
-
-  // Route extraction: FastAPI / Flask decorators (@app.get('/path'), @router.post('/path'))
-  const routePattern = /@[A-Za-z0-9_]+\.(get|post|put|delete|patch)\s*\(\s*["']([^"']+)["']/g;
-  for (const match of content.matchAll(routePattern)) {
-    const method = match[1].toUpperCase();
-    const routePath = match[2];
-    routes.push({
-      method,
-      path: routePath,
-      filePath,
-      line: lineOf(content, match.index)
-    });
-    symbols.push({
-      filePath,
-      kind: `route:${method.toLowerCase()}`,
-      name: `${method} ${routePath}`,
-      line: lineOf(content, match.index)
-    });
-  }
-
-  return { symbols, edges, routes, frameworks: Array.from(frameworks) };
+  const edges = parsed.imports.map((imported) => ({
+    sourcePath: filePath,
+    targetPath: `pkg:${imported.specifier.replace(/^\.+/, '').split('.')[0] || imported.specifier}`,
+    type: 'depends-on-package', confidence: 'statically-inferred', line: imported.line,
+    provenance: 'ast-python-import', parser: parsed.parser
+  }));
+  return {
+    symbols, edges,
+    routes: parsed.routes.map((route) => ({ ...route, filePath, evidence: parsed.evidence, parser: parsed.parser })),
+    frameworks: Array.from(frameworks),
+    parser: { name: parsed.parser, evidence: parsed.evidence, recovered: parsed.recovered, errors: parsed.errors }
+  };
 }
 
 module.exports = { analyzePython };

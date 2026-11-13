@@ -66,7 +66,7 @@ class ChangeImpactEngine {
         const nextChain = [...chain, `${edge.type} (via ${edge.status}) -> ${sourceNode.id}`];
 
         // Check for edge uncertainty or conflicts
-        const isUncertain = edge.status === ValidationStatus.CONFLICTED || edge.status === ValidationStatus.UNRESOLVED;
+        const isUncertain = edge.status === ValidationStatus.CONFLICTED || edge.status === ValidationStatus.UNRESOLVED || edge.status === ValidationStatus.INVALIDATED;
         if (isUncertain) {
           uncertaintyNodes.set(sourceNode.id, {
             node: sourceNode,

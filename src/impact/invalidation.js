@@ -181,10 +181,10 @@ function updateGraphIncrementally(oldGraph, oldEntries, newEntries, newRevisionI
         targetId: fileId,
         type: EdgeType.REFERENCES,
         evidence: [new EvidenceRecord({
-          source: EvidenceSource.STATIC_AST,
+          source: EvidenceSource.CONFIG_MANIFEST,
           revisionId: newRevisionId,
           method: 'repository-manifest',
-          status: ValidationStatus.CONFIRMED,
+          status: ValidationStatus.CONTRACT_DERIVED,
           weight: 1.0,
           details: { path: addedPath }
         })]

@@ -1,6 +1,6 @@
 # Deployment Readiness
 
-Evaluation: 2026-11-13
+Evaluation: 2026-11-14
 
 Decision: `PASS` for a controlled deployment with arbitrary repository execution disabled; `BLOCKED` for enabling multi-tenant untrusted execution; cloud deployment itself is `NOT TESTED` and was prohibited.
 
@@ -16,6 +16,9 @@ Decision: `PASS` for a controlled deployment with arbitrary repository execution
 | Serverless routing/auth | `PASS` | Entry point and rewrite regression tests. |
 | Managed Vercel deployment | `NOT TESTED` | No deploy or provider credentials used. |
 | External queue/worker availability | `NOT TESTED` | Durable DB jobs exist; no worker provisioned. |
+| Phase 4 parser/evidence correctness | `PASS` locally | Real JS/TS/Python parsers and explicit non-AST labels; expanded regression tests. |
+| Phase 4 browser workflow | `PASS` locally | Edge/Playwright: 1 passed; 14 workspaces; desktop/mobile screenshots; final console clean. |
+| Impact accuracy on external repositories | `NOT TESTED` | Only the controlled synthetic dataset was measured. |
 
 Required production variables: `NODE_ENV=production`, `CODEPILOT_AUTH_ENABLED=true`, a unique 32+ character `CODEPILOT_SESSION_SECRET`, durable `DATABASE_URL`, appropriate `CODEPILOT_DB_SSL_MODE` (normally `verify-full`), `CODEPILOT_RATE_LIMIT_ENABLED=true`, and `CODEPILOT_EXECUTION_MODE=disabled` until the worker gate passes.
 
@@ -31,3 +34,7 @@ Readiness requires PostgreSQL. `/api/ready` returns 503 with sanitized dependenc
 | Vercel staging deployment | `NOT TESTED`; no deployment authorized |
 
 `/api/health` and `/api/ready` report queue/storage providers as configured-not-probed rather than available. Environment variables cannot enable execution without a reviewed source change.
+
+## Phase 4 release split
+
+The authenticated platform surface is `GO` for controlled staging/use with execution disabled and within documented parser/benchmark limits. Untrusted execution remains `BLOCKED`; the source-controlled release flag is unchanged. No cloud deployment was performed.

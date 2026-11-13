@@ -5,11 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="CodePilot AI — Professional AI Software Engineering & Architecture Platform">
     <meta name="theme-color" content="#B8860B">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <title>CodePilot AI — Professional AI Engineering Platform</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body class="app-layout">
     <a class="skip-link" href="#main-view">Skip to main content</a>
+
+    <div id="auth-gate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <form id="auth-form" class="auth-card" novalidate>
+        <div class="brand auth-brand"><span class="brand-logo" aria-hidden="true">CP</span><span class="brand-name">CodePilot AI</span></div>
+        <h1 id="auth-title">Sign in</h1>
+        <p id="auth-description" class="meta-text">Authenticate to access your project workspaces.</p>
+        <div id="auth-name-group" class="form-group hidden">
+          <label class="form-label" for="auth-name">Name</label>
+          <input id="auth-name" type="text" maxlength="100" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-email">Email</label>
+          <input id="auth-email" type="email" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-password">Password</label>
+          <input id="auth-password" type="password" required autocomplete="current-password">
+        </div>
+        <p id="auth-feedback" class="feedback-msg" role="alert" aria-live="polite"></p>
+        <button id="auth-submit" type="submit" class="btn btn-primary">Sign in</button>
+        <button id="auth-mode-toggle" type="button" class="btn btn-secondary">Create an account</button>
+      </form>
+    </div>
 
     <!-- ================================================================
          Top Navigation Header
@@ -48,6 +72,7 @@
           🔍 Search <kbd aria-label="keyboard shortcut">Ctrl+K</kbd>
         </button>
         <button id="btn-theme-toggle" type="button" class="icon-btn" title="Toggle light/dark theme" aria-label="Toggle theme">🌓</button>
+        <button id="btn-sign-out" type="button" class="btn btn-secondary btn-sm">Sign out</button>
         <span id="service-pill" class="pill pill-idle" role="status" aria-live="polite">Connecting…</span>
       </div>
     </header>
@@ -199,11 +224,11 @@
           <!-- ============================================================
                View 1: Project Overview & Health
                ============================================================ -->
-          <section id="view-overview" class="page-view active" role="region" aria-labelledby="view-overview-title">
+          <section id="view-overview" class="page-view active" role="region" aria-labelledby="overview-project-title">
             <div class="page-header">
               <div>
                 <span class="badge badge-accent">PROJECT OVERVIEW</span>
-                <h2 id="view-overview-title" id="overview-project-title" class="page-title" style="margin-top:0.35rem;">—</h2>
+                <h2 id="overview-project-title" class="page-title" style="margin-top:0.35rem;">—</h2>
                 <p id="overview-revision-meta" class="meta-text">No revision imported yet.</p>
               </div>
               <div class="page-header-actions">
@@ -679,7 +704,8 @@
                 <h2 id="view-tests-title" class="page-title" style="margin-top:0.35rem;">Testing &amp; Debugging</h2>
                 <p class="meta-text">Execute test suites with duration metrics, failure traces, and CI telemetry.</p>
               </div>
-              <button id="btn-run-tests" type="button" class="btn btn-primary">▶ Run npm test</button>
+              <button id="btn-run-tests" type="button" class="btn btn-primary" disabled aria-describedby="execution-disabled-note">▶ Run npm test</button>
+              <p id="execution-disabled-note" class="meta-text">Execution is disabled until the isolated worker passes adversarial verification. Static test selection remains available.</p>
             </div>
             <div class="panel">
               <pre id="test-output-box" class="code-box" style="min-height:280px; max-height:500px; overflow-y:auto;" aria-live="polite" aria-label="Test execution output">Click 'Run npm test' to execute the test suite.</pre>

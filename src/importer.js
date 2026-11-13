@@ -135,8 +135,10 @@ function normalizeGithubRepoUrl(inputUrl, defaultBranch = 'main') {
 
         return `https://github.com/${owner}/${repo}/archive/refs/heads/${defaultBranch}.zip`;
       }
+      throw new SSRFError('GitHub repository URL must include both an owner and repository name.');
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof SSRFError) throw error;
     // Not a valid standard URL, return original for validateUrlForSSRF to handle error
   }
 
