@@ -55,7 +55,7 @@ test('Serverless handler handles /api/health directly without listening on fixed
   assert.equal(parsed.version, '0.2.0');
 });
 
-test('Serverless handler resolves /api/projects via __path query parameter rewrite', async () => {
+test('Serverless rewrite preserves authentication enforcement for /api/projects', async () => {
   const req = {
     method: 'GET',
     url: '/api/index.js?__path=/api/projects',
@@ -65,12 +65,12 @@ test('Serverless handler resolves /api/projects via __path query parameter rewri
 
   await apiHandler(req, res);
 
-  assert.equal(state.statusCode, 200);
+  assert.equal(state.statusCode, 401);
   const parsed = JSON.parse(state.body);
-  assert.ok(Array.isArray(parsed.projects));
+  assert.equal(parsed.error.code, 'UNAUTHORIZED');
 });
 
-test('Serverless handler resolves /api/projects via x-matched-path header rewrite', async () => {
+test('Serverless matched-path rewrite cannot bypass authentication', async () => {
   const req = {
     method: 'GET',
     url: '/api/index.js',
@@ -83,9 +83,9 @@ test('Serverless handler resolves /api/projects via x-matched-path header rewrit
 
   await apiHandler(req, res);
 
-  assert.equal(state.statusCode, 200);
+  assert.equal(state.statusCode, 401);
   const parsed = JSON.parse(state.body);
-  assert.ok(Array.isArray(parsed.projects));
+  assert.equal(parsed.error.code, 'UNAUTHORIZED');
 });
 
 test('Serverless handler falls back to health status when called directly at /api/index.js', async () => {
@@ -118,7 +118,7 @@ test('Serverless handler handles trailing slashes gracefully', async () => {
   assert.equal(parsed.status, 'ok');
 });
 
-test('Serverless handler creates and deletes project without foreign key constraint failure', async () => {
+test('Serverless handler rejects anonymous project creation', async () => {
   const createReq = {
     method: 'POST',
     url: '/api/projects',
@@ -127,19 +127,7 @@ test('Serverless handler creates and deletes project without foreign key constra
   };
   const createResp = createMockResponse();
   await apiHandler(createReq, createResp.res);
-  assert.equal(createResp.state.statusCode, 201);
-  const created = JSON.parse(createResp.state.body);
-  const projectId = created.project.id;
-
-  const deleteReq = {
-    method: 'DELETE',
-    url: `/api/projects/${projectId}`,
-    headers: { host: 'localhost' }
-  };
-  const deleteResp = createMockResponse();
-  await apiHandler(deleteReq, deleteResp.res);
-  assert.equal(deleteResp.state.statusCode, 200);
-  const deleted = JSON.parse(deleteResp.state.body);
-  assert.equal(deleted.success, true);
+  assert.equal(createResp.state.statusCode, 401);
+  assert.equal(JSON.parse(createResp.state.body).error.code, 'UNAUTHORIZED');
 });
 

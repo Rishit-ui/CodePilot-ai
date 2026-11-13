@@ -9,6 +9,14 @@ const ALLOWED_TEST_COMMANDS = [
   'cargo test'
 ];
 
+const TEST_STATUS = Object.freeze({
+  PASS: 'PASS',
+  FAIL: 'FAIL',
+  NOT_EXECUTED: 'NOT_EXECUTED',
+  BLOCKED: 'BLOCKED',
+  PENDING: 'PENDING'
+});
+
 function isCommandAllowed(command) {
   const trimmed = command.trim();
   return ALLOWED_TEST_COMMANDS.some((allowed) => trimmed === allowed || trimmed.startsWith(`${allowed} `));
@@ -17,10 +25,11 @@ function isCommandAllowed(command) {
 async function runIsolatedTest(command, cwd, timeoutMs = 30000) {
   if (!isCommandAllowed(command)) {
     return {
-      status: 'error',
-      exitCode: -1,
+      status: TEST_STATUS.BLOCKED,
+      exitCode: null,
       output: `Command "${command}" is rejected. Only approved test runners (${ALLOWED_TEST_COMMANDS.join(', ')}) are allowed.`,
-      durationMs: 0
+      durationMs: null,
+      executed: false
     };
   }
 
@@ -47,10 +56,11 @@ async function runIsolatedTest(command, cwd, timeoutMs = 30000) {
       });
     } catch (err) {
       return resolve({
-        status: 'error',
-        exitCode: -1,
+        status: TEST_STATUS.BLOCKED,
+        exitCode: null,
         output: `Failed to spawn process: ${err.message}`,
-        durationMs: Date.now() - startTime
+        durationMs: null,
+        executed: false
       });
     }
 
@@ -62,19 +72,21 @@ async function runIsolatedTest(command, cwd, timeoutMs = 30000) {
     child.on('close', (code) => {
       const durationMs = Date.now() - startTime;
       resolve({
-        status: code === 0 ? 'passed' : 'failed',
+        status: code === 0 ? TEST_STATUS.PASS : TEST_STATUS.FAIL,
         exitCode: code,
         output: output.slice(0, 50000), // Cap output
-        durationMs
+        durationMs,
+        executed: true
       });
     });
 
     child.on('error', (err) => {
       resolve({
-        status: 'error',
-        exitCode: -1,
+        status: TEST_STATUS.BLOCKED,
+        exitCode: null,
         output: output + `\nProcess error: ${err.message}`,
-        durationMs: Date.now() - startTime
+        durationMs: null,
+        executed: false
       });
     });
   });
@@ -83,5 +95,6 @@ async function runIsolatedTest(command, cwd, timeoutMs = 30000) {
 module.exports = {
   isCommandAllowed,
   runIsolatedTest,
-  ALLOWED_TEST_COMMANDS
+  ALLOWED_TEST_COMMANDS,
+  TEST_STATUS
 };

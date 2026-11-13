@@ -1,70 +1,37 @@
-# Comprehensive Application Security Audit & Threat Model
+# CodePilot AI Security Audit
 
-**Application:** CodePilot AI  
-**Version:** 0.2.0  
-**Audit Date:** 2026-11-13  
-**Status:** HARDENED & VERIFIED  
+Audit date: 2026-11-13
 
----
+Phase: 1 critical repair
 
-## 1. Executive Summary
+Status: repaired and locally verified; public deployment remains out of scope
 
-CodePilot AI functions as a developer intelligence platform that ingests untrusted codebases (via ZIP archives, remote URLs, and GitHub links), parses source structures, analyzes dependencies, and runs selective regression tests. This architectural posture makes ingestion safety, command isolation, and SSRF prevention primary security boundaries.
+## Repaired findings
 
-All security controls were audited and verified using automated test suites.
+| Finding | Previous behavior | Repair | Verification |
+| --- | --- | --- | --- |
+| Missing route authentication | Most API routes accepted anonymous requests when authentication was disabled by default. | A central gate now allows only health, readiness, registration, and login without a session. Production forces authentication on. | `tests/security_repair.test.js`, `tests/vercel.test.js` |
+| Missing tenant authorization | Project lists were global and project routes did not enforce ownership. Child IDs could be addressed independently. | Projects have an `owner_id`; workspace membership supplies RBAC; every `/api/projects/:id` route is authorized before dispatch; child resource IDs are bound to the URL project. | Cross-user list/read/delete/audit tests pass. |
+| Global audit and database exposure | `/api/audit` returned all events; Database Studio queried the platform database for ordinary users. | Audit events are filtered to accessible projects. Platform database schema/query routes require a global administrator when auth is enabled. | `tests/security_repair.test.js`; route inspection. |
+| Weak production secret handling | Vercel could receive a committed known secret and production auth could be disabled. | Production requires an explicit secret of at least 32 characters, rejects known placeholders, and rejects disabled auth. Development uses an unpredictable process-local secret if omitted. Session tokens are HMAC-hashed at rest. | `tests/config.test.js`. |
+| Fabricated test success | Both serverless test endpoints returned hard-coded success, exit code 0, and invented durations. | Test states are `PASS`, `FAIL`, `NOT_EXECUTED`, `BLOCKED`, or `PENDING`. Serverless returns `NOT_EXECUTED` with null exit code/duration unless a real runner result exists. | `tests/security_repair.test.js`, `tests/impact_selection.test.js`. |
 
----
+## Role policy
 
-## 2. Threat Analysis & Implemented Defenses
+| Role | Read | Create/update/import/analyze/patch/test | Deploy | Delete project | Admin membership |
+| --- | --- | --- | --- | --- | --- |
+| Owner | Yes | Yes | Yes | Yes | Yes |
+| Admin | Yes | Yes | Yes | No | Yes |
+| Editor | Yes | Yes | No | No | No |
+| Viewer | Yes | No | No | No | No |
 
-### A. Repository Ingestion & ZIP Slip Protection
-* **Threat:** Malicious ZIP archives containing relative paths (`../../etc/passwd`) or symlinks targeting sensitive host files.
-* **Mitigation (`src/archive.js`):**
-  - Strict path resolution asserting that all extracted targets reside strictly within the intended destination directory.
-  - Rejection of entries beginning with `/` or containing `..`.
-  - Detection and rejection of symbolic links (`entry.isSymbolicLink` / entry mode checks).
-  - Enforcement of archive size boundaries: maximum file count (10,000 files) and maximum uncompressed size limits.
-  - Content hashing via SHA-256 for integrity verification.
-* **Verification:** `tests/archive.test.js` (Passing: rejection of zip slip, absolute paths, symlinks, oversized files).
+Global administrators can access all projects and the platform Database Studio. An inaccessible project returns `404` to avoid confirming another tenant's identifiers.
 
-### B. Remote Ingestion & SSRF Mitigation
-* **Threat:** Attackers providing remote archive URLs targeting internal infrastructure (`169.254.169.254` AWS metadata, `127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `::1`).
-* **Mitigation (`src/importer.js`):**
-  - Protocol whitelist: strictly `http:` and `https:`.
-  - DNS resolution validation before making outbound HTTP requests.
-  - Verification that target IP does not belong to loopback, link-local, private RFC 1918 CIDRs, or IPv6 equivalents (`isPrivateIp`).
-  - Redirect safety: all HTTP 3xx redirect destinations are re-evaluated against SSRF rules before following.
-* **Verification:** `tests/ssrf.test.js` (Passing: loopback, private ranges, metadata IP rejection).
+## Remaining risks
 
-### C. Authentication & Access Control
-* **Threat:** Brute-force attacks, weak passwords, privilege escalation, credential sniffing.
-* **Mitigation (`src/auth.js`):**
-  - Password hashing utilizing Node.js native `crypto.scryptSync` with unique 16-byte random salts.
-  - High-entropy cryptographic bearer session tokens generated via `crypto.randomBytes(32)`.
-  - Timing-safe comparison (`crypto.timingSafeEqual`) on password hashes to prevent timing attacks.
-  - Strict input validation on registration: RFC-compliant email formatting and password strength enforcement (minimum 10 characters, requiring uppercase, lowercase, digit, and special characters).
-  - Role-Based Access Control (RBAC) with defined permission boundaries (`owner` > `admin` > `editor` > `viewer`).
-* **Verification:** `tests/auth.test.js` (Passing: password hashing, timing-safe equality, token entropy, RBAC hierarchy, email and password validation).
+- Authentication endpoints do not yet have an application-level rate limiter. Production must add one or enforce equivalent controls at a trusted reverse proxy.
+- Test subprocesses run with a reduced environment and allowlist but still share the host kernel and filesystem permissions. Untrusted execution requires a separate sandbox worker or microVM before multi-tenant production use.
+- Existing sessions created before this repair are invalid because persisted session identifiers are now HMAC hashes. Users must log in again; user/project data is retained.
+- PostgreSQL ownership migration is an idempotent startup `ALTER TABLE`. Back up production data and run the migration in staging before rollout.
 
-### D. Subprocess Test Runner Isolation
-* **Threat:** Remote Code Execution (RCE) via untrusted test commands or malicious scripts attempting to leak host environment variables.
-* **Mitigation (`src/impact/runner.js`):**
-  - Strict command allowlist: only approved test runners (`npm test`, `npx jest`, `node --test`, `pytest`, `python -m unittest`) are permitted.
-  - Command line arguments are validated and sanitized without invoking shell interpreters (`shell: false`).
-  - Secret stripping: environment variables containing sensitive keywords (`TOKEN`, `KEY`, `SECRET`, `PASSWORD`, `AUTH`, `CREDENTIAL`) are scrubbed before passing `process.env` to the child process.
-  - Execution timeouts and maximum buffer output limits to mitigate Denial of Service (DoS).
-* **Verification:** `tests/impact_selection.test.js` (Passing: allowlist enforcement, secret scrubbing).
-
-### E. AI Input & Context Grounding
-* **Threat:** Prompt injection from analyzed repository files attempting to hijack the AI assistant's system instructions.
-* **Mitigation (`src/ai.js`):**
-  - Repository content is explicitly encapsulated inside isolated context blocks labeled as untrusted input.
-  - Fixed system prompts assert that code files are observational data only and cannot alter the assistant's operational persona.
-  - Offline deterministic fallback ensures no external data leaks occur when API keys are absent.
-
----
-
-## 3. Residual Security Findings & Recommendations
-
-1. **Test Runner Sandboxing:** While the `IsolatedTestRunner` restricts command synthesis and scrubs secrets, test processes still run under the host OS permissions of the application process. For enterprise multi-tenant deployments, executing tests inside ephemeral microVMs (e.g., Firecracker or Docker-in-Docker) is recommended.
-2. **Rate Limiting:** Production deployments behind reverse proxies (Nginx / Cloudflare / Vercel Edge) should enforce per-IP rate limiting on `/api/auth/login` and `/api/auth/register` to mitigate distributed credential stuffing.
+No secrets were added to source control, logs, or documentation.

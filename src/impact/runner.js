@@ -7,6 +7,7 @@ const ALLOWED_RUNNERS = Object.freeze([
   'pytest',
   'python -m unittest'
 ]);
+const TEST_STATUS = Object.freeze({ PASS: 'PASS', FAIL: 'FAIL', NOT_EXECUTED: 'NOT_EXECUTED', BLOCKED: 'BLOCKED', PENDING: 'PENDING' });
 
 class IsolatedTestRunner {
   constructor(options = {}) {
@@ -77,10 +78,11 @@ class IsolatedTestRunner {
       fullCommand = commandOrSpec.command;
     } else {
       return {
-        status: 'skipped',
-        exitCode: 0,
+        status: TEST_STATUS.NOT_EXECUTED,
+        exitCode: null,
         output: 'No test command to execute.',
-        durationMs: 0
+        durationMs: null,
+        executed: false
       };
     }
 
@@ -88,10 +90,11 @@ class IsolatedTestRunner {
     const isAllowed = ALLOWED_RUNNERS.some((runner) => fullCommand.startsWith(runner) || fullCommand.startsWith(runner.split(' ')[0]));
     if (!isAllowed) {
       return {
-        status: 'error',
-        exitCode: -1,
+        status: TEST_STATUS.BLOCKED,
+        exitCode: null,
         output: `Security violation: Command "${fullCommand}" is not in the approved test runner allowlist (${ALLOWED_RUNNERS.join(', ')}).`,
-        durationMs: 0
+        durationMs: null,
+        executed: false
       };
     }
 
@@ -115,10 +118,11 @@ class IsolatedTestRunner {
         });
       } catch (err) {
         return resolve({
-          status: 'error',
-          exitCode: -1,
+          status: TEST_STATUS.BLOCKED,
+          exitCode: null,
           output: `Failed to spawn test runner: ${err.message}`,
-          durationMs: Date.now() - startTime
+          durationMs: null,
+          executed: false
         });
       }
 
@@ -136,21 +140,23 @@ class IsolatedTestRunner {
         const durationMs = Date.now() - startTime;
         const totalOutput = (stdout + (stderr ? `\nSTDERR:\n${stderr}` : '')).slice(0, this.options.maxOutputBytes);
         resolve({
-          status: code === 0 ? 'passed' : 'failed',
+          status: code === 0 ? TEST_STATUS.PASS : TEST_STATUS.FAIL,
           exitCode: code,
           output: totalOutput,
           durationMs,
-          command: fullCommand
+          command: fullCommand,
+          executed: true
         });
       });
 
       child.on('error', (err) => {
         resolve({
-          status: 'error',
-          exitCode: -1,
+          status: TEST_STATUS.BLOCKED,
+          exitCode: null,
           output: `Execution error: ${err.message}`,
-          durationMs: Date.now() - startTime,
-          command: fullCommand
+          durationMs: null,
+          command: fullCommand,
+          executed: false
         });
       });
     });
@@ -159,5 +165,6 @@ class IsolatedTestRunner {
 
 module.exports = {
   ALLOWED_RUNNERS,
-  IsolatedTestRunner
+  IsolatedTestRunner,
+  TEST_STATUS
 };

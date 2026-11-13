@@ -1,6 +1,7 @@
 # CodePilot AI — Environment Setup Guide
 
-> **Status:** Production-ready as of audit date 2026-11-13.  
+> **Status:** Local and Docker setup verified on 2026-11-13. Public production deployment remains blocked by the readiness gate.
+>
 > All commands use PowerShell syntax (Windows) with Bash equivalents noted where they differ.
 
 ---
@@ -23,13 +24,13 @@
 
 | Requirement | Minimum Version | Notes |
 |-------------|----------------|-------|
-| **Node.js** | `>= 20.0.0` | v24 recommended (used in CI). `node --version` to verify. |
+| **Node.js** | `>= 24.0.0` | Required for the built-in SQLite adapter. Use `node --version` to verify. |
 | **npm** | bundled with Node | v9+ preferred |
 | **git** | any recent | For cloning and GitHub import features |
 | **Docker** (optional) | 24+ | For containerised deployment only |
 
 > [!IMPORTANT]
-> The `package.json` `engines` field declares `"node": ">=20.0.0"`. Running on Node 18 or earlier is unsupported and may cause test failures.
+> The `package.json` `engines` field declares `"node": ">=24.0.0"`.
 
 ---
 
@@ -41,16 +42,15 @@ git clone https://github.com/Rishit-ui/CodePilot-AI.git
 Set-Location "CodePilot AI"
 
 # Install all dependencies
-npm install
+npm ci
 ```
 
-The five runtime dependencies installed by `npm install`:
+The four runtime dependencies installed from `package-lock.json`:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `acorn` | ^8.19.0 | JavaScript AST parsing for impact engine |
 | `adm-zip` | ^0.6.1 | ZIP archive decompression |
-| `better-sqlite3` | ^13.1.1 | SQLite3 driver for local/dev database |
 | `node-fetch` | ^3.3.2 | Remote URL fetching for GitHub/URL import |
 | `pg` | ^8.23.1 | PostgreSQL driver for production database |
 
@@ -58,7 +58,7 @@ The five runtime dependencies installed by `npm install`:
 
 ```powershell
 npm run check    # Node.js --check on all source files; must exit 0
-npm test         # 47 tests; all should pass
+npm test         # Phase 1 baseline: 53 tests; all should pass
 ```
 
 ---
@@ -71,7 +71,7 @@ Copy the template to create your local configuration:
 Copy-Item .env.example .env
 ```
 
-The full list of supported variables (all optional in development):
+The full list of supported variables:
 
 ### Server Configuration
 
@@ -86,11 +86,11 @@ The full list of supported variables (all optional in development):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CODEPILOT_SESSION_SECRET` | *(dev fallback)* | **Required in production** (`NODE_ENV=production`). Minimum 32 chars. The server throws `FATAL` on startup if missing in prod. |
-| `CODEPILOT_AUTH_ENABLED` | `false` | Set `true` to enforce bearer-token authentication on all API routes |
+| `CODEPILOT_SESSION_SECRET` | Random process-local value in development | **Required in production**. Must be at least 32 characters and not a known placeholder. |
+| `CODEPILOT_AUTH_ENABLED` | `true` | May be explicitly disabled only for trusted local development; production rejects `false`. |
 
 > [!CAUTION]
-> Never deploy to production without setting a strong, unique `CODEPILOT_SESSION_SECRET`. The dev fallback is public knowledge.
+> Never deploy without a strong, unique `CODEPILOT_SESSION_SECRET` from a secret manager. The generated development value is unpredictable and is not a production fallback.
 
 ### Database
 
@@ -182,13 +182,14 @@ PostgreSQL is used in hosted environments (Vercel, Render, Fly, Docker + managed
 $env:NODE_ENV              = "production"
 $env:DATABASE_URL          = "postgres://user:password@hostname:5432/codepilot"
 $env:CODEPILOT_SESSION_SECRET = "your-32-plus-char-random-secret-here"
+$env:CODEPILOT_AUTH_ENABLED = "true"
 $env:CODEPILOT_HOST        = "0.0.0.0"
 $env:CODEPILOT_PORT        = "3000"
 
 node src/server.js
 ```
 
-The `Store` class automatically switches from `better-sqlite3` to the `pg` client when `DATABASE_URL` is set. Schema and table creation happen automatically on startup for both dialects.
+The `Store` uses Node's built-in SQLite adapter unless `DATABASE_URL` selects the `pg` client. Schema creation and idempotent ownership migration run on startup for both dialects.
 
 **Supported PostgreSQL providers:**
 - Vercel Postgres
@@ -245,9 +246,12 @@ CODEPILOT_AI_BASE_URL=https://your-openai-compatible-api.example.com/v1
 
 CodePilot AI ships with a `vercel.json` routing configuration targeting the serverless entry point at `api/index.js`.
 
+This section is a configuration reference only. Phase 1 did not deploy to Vercel, and public deployment remains blocked by the items in `DEPLOYMENT_READINESS.md`.
+
 ### Steps
 
-1. **Import to Vercel**  
+1. **Import to Vercel**
+
    Go to [vercel.com/new](https://vercel.com/new) and import the GitHub repository `Rishit-ui/CodePilot-AI`.
 
 2. **Configure environment variables** in the Vercel dashboard under *Project Settings → Environment Variables*:
@@ -302,20 +306,20 @@ docker run -d `
 ### Docker Compose (recommended)
 
 ```powershell
+$env:CODEPILOT_SESSION_SECRET = (node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))")
 docker compose up --build
 ```
 
 The `docker-compose.yml` creates:
 - **Service:** `codepilot-ai` listening on port 3000
 - **Volume:** `codepilot-data` persisting `.data/` between container restarts
-- **Network:** `codepilot-net` (bridge)
+- **Network:** Compose default bridge network
 
-> [!WARNING]
-> The example `CODEPILOT_SESSION_SECRET` in `docker-compose.yml` is a placeholder. **Replace it** with a strong random value before production use.
+Compose refuses to render when `CODEPILOT_SESSION_SECRET` is missing.
 
 ### Dockerfile notes
 
-- **Base image:** `node:24-alpine` — minimal attack surface
+- **Base image:** `node:24-bookworm-slim`
 - **Non-root user:** Runs as `codepilot` (not root)
 - **Health check:** `wget` probes `http://127.0.0.1:3000/api/health` every 30 s
 - **Exposed port:** 3000

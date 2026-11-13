@@ -1,5 +1,15 @@
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
+
+const MIN_SESSION_SECRET_LENGTH = 32;
+const INSECURE_SECRET_PATTERNS = [
+  /dev[-_ ]?insecure/i,
+  /change[-_ ]?this/i,
+  /replace[-_ ]?me/i,
+  /local[-_ ]?dev[-_ ]?fallback/i,
+  /prod[-_ ]?insecure/i
+];
 
 function readEnvFile(filePath) {
   try {
@@ -41,11 +51,20 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   const nodeEnv = env.NODE_ENV || 'development';
   const isVercel = Boolean(env.VERCEL || env.NEXT_PUBLIC_VERCEL_ENV);
   const isProd = nodeEnv === 'production';
-
-  const sessionSecret = env.CODEPILOT_SESSION_SECRET || (isProd && !isVercel ? null : 'dev-insecure-secret-key-32-chars-min-length-1234');
-  if (isProd && !isVercel && !sessionSecret) {
-    throw new Error('FATAL: CODEPILOT_SESSION_SECRET must be explicitly set in production mode.');
+  const configuredSecret = env.CODEPILOT_SESSION_SECRET || '';
+  const authEnabled = boolean(env.CODEPILOT_AUTH_ENABLED, true);
+  if (isProd && !configuredSecret) {
+    throw new Error('FATAL: CODEPILOT_SESSION_SECRET must be explicitly set in every production environment.');
   }
+  if (configuredSecret && (configuredSecret.length < MIN_SESSION_SECRET_LENGTH || INSECURE_SECRET_PATTERNS.some((pattern) => pattern.test(configuredSecret)))) {
+    throw new Error(`FATAL: CODEPILOT_SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters and must not use a known placeholder.`);
+  }
+  if (isProd && !authEnabled) {
+    throw new Error('FATAL: CODEPILOT_AUTH_ENABLED cannot be disabled in production.');
+  }
+  // Development gets an unpredictable process-local value when no secret is configured.
+  // It is never used as a production fallback and is intentionally not logged.
+  const sessionSecret = configuredSecret || crypto.randomBytes(32).toString('hex');
 
   // Database URL for hosted PostgreSQL (Neon, Supabase, Vercel Postgres, AWS RDS)
   const databaseUrl = env.DATABASE_URL || env.POSTGRES_URL || env.POSTGRES_PRISMA_URL || null;
@@ -63,8 +82,8 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
     port: integer(env.CODEPILOT_PORT, 3000, 1, 65535),
     dataDir: path.resolve(rootDir, env.CODEPILOT_DATA_DIR || (isVercel ? '/tmp/.data' : '.data')),
     databaseUrl,
-    sessionSecret: sessionSecret || 'local-dev-fallback-key-for-testing-only',
-    authEnabled: boolean(env.CODEPILOT_AUTH_ENABLED, false),
+    sessionSecret,
+    authEnabled,
     ai: Object.freeze({
       provider: env.CODEPILOT_AI_PROVIDER || 'local', // 'local' | 'openai' | 'anthropic' | 'gemini'
       apiKey: env.CODEPILOT_AI_API_KEY || '',
@@ -91,4 +110,4 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   });
 }
 
-module.exports = { loadConfig };
+module.exports = { loadConfig, MIN_SESSION_SECRET_LENGTH };

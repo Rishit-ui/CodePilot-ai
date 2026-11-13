@@ -2,14 +2,14 @@ const { SourceCodeImpactAnalyzer } = require('./impact/analyzer');
 const { EvidenceReconciler } = require('./impact/reconcile');
 const { ChangeImpactEngine } = require('./impact/impact');
 const { RegressionTestSelector, SelectionStrategy } = require('./impact/test-selector');
-const { IsolatedTestRunner } = require('./impact/runner');
+const { IsolatedTestRunner, TEST_STATUS } = require('./impact/runner');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { loadConfig } = require('./config');
 const { Store } = require('./db');
-const { validateEmail, validatePasswordStrength } = require('./auth');
+const { validateEmail, validatePasswordStrength, hasPermission } = require('./auth');
 const { ArchiveError, readZip, contentHash } = require('./archive');
 const { analyze } = require('./analyzer');
 const { validateUrlForSSRF, fetchRemoteZip, fetchGithubOrRemoteZip, normalizeGithubRepoUrl, SSRFError } = require('./importer');
@@ -89,10 +89,10 @@ function parseJson(buffer) {
   }
 }
 
-async function ensureProject(store, projectId) {
+async function ensureProject(store, projectId, allowAutoCreate = false) {
   if (!projectId || typeof projectId !== 'string') return null;
   let project = await store.project(projectId);
-  if (!project && projectId.startsWith('project_')) {
+  if (!project && allowAutoCreate && projectId.startsWith('project_')) {
     try {
       await store.run(
         'INSERT OR IGNORE INTO projects (id, name, created_at) VALUES (?, ?, ?)',
@@ -106,6 +106,39 @@ async function ensureProject(store, projectId) {
     }
   }
   return project;
+}
+
+const PUBLIC_API_ROUTES = new Set([
+  'GET /api',
+  'GET /api/health',
+  'GET /api/ready',
+  'POST /api/auth/register',
+  'POST /api/auth/login'
+]);
+
+function requiredProjectPermission(method, pathname) {
+  if (method === 'GET') return 'read';
+  if (method === 'DELETE' && /^\/api\/projects\/[^/]+$/.test(pathname)) return 'delete';
+  if (/\/deploy$/.test(pathname)) return 'deploy';
+  return 'write';
+}
+
+function nestedResource(pathname) {
+  const patterns = [
+    ['finding', /^\/api\/projects\/[^/]+\/findings\/([^/]+)\/suppress$/],
+    ['diagram', /^\/api\/projects\/[^/]+\/diagrams\/([^/]+)$/],
+    ['task', /^\/api\/projects\/[^/]+\/tasks\/([^/]+)$/],
+    ['note', /^\/api\/projects\/[^/]+\/notes\/([^/]+)$/],
+    ['conversation', /^\/api\/projects\/[^/]+\/conversations\/([^/]+)$/],
+    ['apiRequest', /^\/api\/projects\/[^/]+\/api-requests\/([^/]+)$/],
+    ['operation', /^\/api\/projects\/[^/]+\/operations\/([^/]+)$/],
+    ['patch', /^\/api\/projects\/[^/]+\/patches\/([^/]+)\/(?:apply|rollback)$/]
+  ];
+  for (const [type, pattern] of patterns) {
+    const match = pathname.match(pattern);
+    if (match) return { type, id: match[1] };
+  }
+  return null;
 }
 
 async function latestOrError(store, projectId, response) {
@@ -138,8 +171,11 @@ function serveStatic(request, response, pathname) {
 }
 
 function createApp(options = {}) {
-  const config = options.config || loadConfig(ROOT);
-  const store = options.store || new Store(config.dataDir, config.databaseUrl);
+  const suppliedConfig = options.config || loadConfig(ROOT);
+  // Partial embedded/test configurations must opt out explicitly. An omitted
+  // flag never creates an accidental authentication bypass.
+  const config = Object.freeze({ ...suppliedConfig, authEnabled: suppliedConfig.authEnabled !== false });
+  const store = options.store || new Store({ dataDir: config.dataDir, databaseUrl: config.databaseUrl, sessionSecret: config.sessionSecret });
 
   const handleRequest = async (request, response) => {
     const requestId = crypto.randomUUID();
@@ -247,6 +283,30 @@ function createApp(options = {}) {
         return json(response, 200, { user, token: session.token, requestId });
       }
 
+      // Central authentication gate. Development bypass is accepted only when
+      // explicitly configured outside production by CODEPILOT_AUTH_ENABLED=false.
+      const publicRoute = PUBLIC_API_ROUTES.has(`${request.method} ${pathname}`);
+      if (pathname.startsWith('/api/') && !publicRoute && config.authEnabled && !currentUser) {
+        return error(response, 401, 'UNAUTHORIZED', 'A valid authenticated session is required.');
+      }
+
+      // Central project authorization gate covers every present and future
+      // /api/projects/:id route before endpoint-specific database access.
+      const scopedProjectMatch = pathname.match(/^\/api\/projects\/([^/]+)(?:\/|$)/);
+      if (scopedProjectMatch && config.authEnabled) {
+        const projectId = scopedProjectMatch[1];
+        const access = await store.getProjectAccess(projectId, currentUser);
+        if (!access) return error(response, 404, 'PROJECT_NOT_FOUND', 'Project was not found.');
+        const permission = requiredProjectPermission(request.method, pathname);
+        if (!hasPermission(access.role, permission)) {
+          return error(response, 403, 'FORBIDDEN', `Project role ${access.role} does not permit ${permission} access.`);
+        }
+        const nested = nestedResource(pathname);
+        if (nested && !(await store.resourceBelongsToProject(nested.type, nested.id, projectId))) {
+          return error(response, 404, 'RESOURCE_NOT_FOUND', 'The requested project resource was not found.');
+        }
+      }
+
       if (request.method === 'GET' && pathname === '/api/auth/me') {
         if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'Not authenticated.');
         return json(response, 200, { user: currentUser, requestId });
@@ -272,7 +332,7 @@ function createApp(options = {}) {
       // --- Projects Endpoints ---
       if (request.method === 'GET' && pathname === '/api/projects') {
         const workspaceId = url.searchParams.get('workspaceId');
-        const projects = await store.listProjects(workspaceId);
+        const projects = await store.listProjects(workspaceId, config.authEnabled ? currentUser.id : null);
         return json(response, 200, { projects, requestId });
       }
 
@@ -284,7 +344,11 @@ function createApp(options = {}) {
         if (!name || name.length > 100) {
           return error(response, 422, 'INVALID_PROJECT_NAME', 'Project name must contain 1–100 characters.');
         }
-        const project = await store.createProject(name, description, workspaceId, currentUser?.id);
+        if (workspaceId && config.authEnabled) {
+          const role = await store.getWorkspaceRole(workspaceId, currentUser.id);
+          if (!hasPermission(role, 'write')) return error(response, 403, 'FORBIDDEN', 'Workspace role does not permit project creation.');
+        }
+        const project = await store.createProject(name, description, workspaceId, currentUser?.id || null);
         return json(response, 201, { project, requestId });
       }
 
@@ -574,6 +638,10 @@ function createApp(options = {}) {
         const messages = body.messages || [];
         let convoId = body.conversationId;
 
+        if (convoId && !(await store.resourceBelongsToProject('conversation', convoId, projectId))) {
+          return error(response, 404, 'RESOURCE_NOT_FOUND', 'Conversation was not found in this project.');
+        }
+
         if (!convoId) {
           const firstUserMsg = messages.find((m) => m.role === 'user');
           const title = firstUserMsg ? firstUserMsg.content.slice(0, 30) : 'New Conversation';
@@ -839,6 +907,9 @@ function createApp(options = {}) {
       // --- Database Studio Endpoints ---
       const dbSchemaMatch = pathname.match(/^\/api\/projects\/([^/]+)\/db-schema$/);
       if (request.method === 'GET' && dbSchemaMatch) {
+        if (config.authEnabled && !currentUser.is_global_admin) {
+          return error(response, 403, 'FORBIDDEN', 'Platform database inspection requires a global administrator.');
+        }
         let tables = [];
         if (store.dialect === 'postgres') {
           const res = await store.all(
@@ -856,6 +927,9 @@ function createApp(options = {}) {
 
       const dbQueryMatch = pathname.match(/^\/api\/projects\/([^/]+)\/db-query$/);
       if (request.method === 'POST' && dbQueryMatch) {
+        if (config.authEnabled && !currentUser.is_global_admin) {
+          return error(response, 403, 'FORBIDDEN', 'Platform database queries require a global administrator.');
+        }
         const body = parseJson(await readBody(request, 8 * 1024));
         const rawSql = (body.query || body.sql || '').trim();
         if (!rawSql) return error(response, 422, 'SQL_REQUIRED', 'SQL query statement is required.');
@@ -1225,10 +1299,11 @@ function createApp(options = {}) {
           return json(response, 200, {
             selection,
             execution: {
-              status: 'passed',
-              exitCode: 0,
-              output: 'Serverless deployment mode: Selected ' + selection.selectedTestFiles.length + ' test files via ' + strategy + ' strategy.\nLive CI verified all regression paths successfully.',
-              durationMs: 6
+              status: TEST_STATUS.NOT_EXECUTED,
+              exitCode: null,
+              output: 'Tests were selected but were not executed because this serverless runtime does not provide an isolated project workspace. No external CI result was configured.',
+              durationMs: null,
+              executed: false
             },
             requestId
           });
@@ -1237,7 +1312,7 @@ function createApp(options = {}) {
         const synth = runner.synthesizeCommand(selection.selectedTestFiles, baseCommand);
         const execution = synth.command
           ? await runner.execute(synth, ROOT, config.limits.commandTimeoutMs)
-          : { status: 'skipped', exitCode: 0, output: 'No tests required for execution.', durationMs: 0 };
+          : { status: TEST_STATUS.NOT_EXECUTED, exitCode: null, output: 'No tests were selected for execution.', durationMs: null, executed: false };
 
         return json(response, 200, {
           selection,
@@ -1265,10 +1340,11 @@ function createApp(options = {}) {
         if (config.isVercel) {
           return json(response, 200, {
             result: {
-              status: 'passed',
-              exitCode: 0,
-              output: 'Serverless deployment mode active: Automated tests are executed via GitHub Actions CI/CD to prevent serverless execution limits.\nAll 25 automated tests passed in CI verification.',
-              durationMs: 5
+              status: TEST_STATUS.NOT_EXECUTED,
+              exitCode: null,
+              output: 'Tests were not executed because this serverless runtime does not provide an isolated project workspace. No verifiable external CI run was retrieved.',
+              durationMs: null,
+              executed: false
             },
             requestId
           });
@@ -1294,7 +1370,9 @@ function createApp(options = {}) {
 
       // --- Audit Log ---
       if (request.method === 'GET' && pathname === '/api/audit') {
-        const events = await store.all('SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 100');
+        const events = config.authEnabled
+          ? await store.listAuditEventsForUser(currentUser)
+          : await store.all('SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 100');
         return json(response, 200, { events, requestId });
       }
 

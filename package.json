@@ -4,7 +4,7 @@
   "private": true,
   "description": "Evidence-driven codebase intelligence, AI software engineering, DevOps, and verified cloud deployment platform.",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -15,7 +15,6 @@
   "dependencies": {
     "acorn": "^8.19.0",
     "adm-zip": "^0.6.1",
-    "better-sqlite3": "^13.1.1",
     "node-fetch": "^3.3.2",
     "pg": "^8.23.1"
   }

@@ -53,6 +53,7 @@ const SCHEMA_DDL = `
   CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     workspace_id TEXT REFERENCES workspaces(id) ON DELETE SET NULL,
+    owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     description TEXT,
     created_at TEXT NOT NULL
@@ -330,10 +331,12 @@ class Store {
   constructor(dataDirOrOptions, maybeDatabaseUrl) {
     let dataDir = '.data';
     let databaseUrl = null;
+    let sessionSecret = null;
 
     if (typeof dataDirOrOptions === 'object' && dataDirOrOptions !== null) {
       dataDir = dataDirOrOptions.dataDir || '.data';
       databaseUrl = dataDirOrOptions.databaseUrl || null;
+      sessionSecret = dataDirOrOptions.sessionSecret || null;
     } else {
       dataDir = dataDirOrOptions || '.data';
       databaseUrl = maybeDatabaseUrl || null;
@@ -341,6 +344,7 @@ class Store {
 
     this.databaseUrl = databaseUrl;
     this.dataDir = dataDir;
+    this.sessionSecret = sessionSecret || crypto.randomBytes(32).toString('hex');
 
     if (this.databaseUrl) {
       this.dialect = 'postgres';
@@ -367,6 +371,10 @@ class Store {
       this.sqlite = new DatabaseSync(path.join(this.dataDir, 'codepilot.db'));
       this.sqlite.exec('PRAGMA foreign_keys = ON;');
       this.sqlite.exec(SCHEMA_DDL);
+      const projectColumns = this.sqlite.prepare('PRAGMA table_info(projects)').all();
+      if (!projectColumns.some((column) => column.name === 'owner_id')) {
+        this.sqlite.exec('ALTER TABLE projects ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE SET NULL;');
+      }
     }
   }
 
@@ -374,6 +382,7 @@ class Store {
     this.readyPromise = (async () => {
       try {
         await this.pool.query(SCHEMA_DDL);
+        await this.pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL');
       } catch (err) {
         console.error('Failed to initialize PostgreSQL schema:', err.message);
       }
@@ -479,24 +488,27 @@ class Store {
 
   async createSession(userId, expiresInHours = 72) {
     const token = generateToken();
+    const tokenHash = crypto.createHmac('sha256', this.sessionSecret).update(token).digest('hex');
     const expiresAt = new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString();
-    await this.run('INSERT INTO sessions VALUES (?, ?, ?, ?)', token, userId, expiresAt, now());
+    await this.run('INSERT INTO sessions VALUES (?, ?, ?, ?)', tokenHash, userId, expiresAt, now());
     return { token, expiresAt };
   }
 
   async getSessionUser(token) {
     if (!token) return null;
-    const session = await this.get('SELECT * FROM sessions WHERE token = ?', token);
+    const tokenHash = crypto.createHmac('sha256', this.sessionSecret).update(token).digest('hex');
+    const session = await this.get('SELECT * FROM sessions WHERE token = ?', tokenHash);
     if (!session) return null;
     if (new Date(session.expires_at) < new Date()) {
-      await this.run('DELETE FROM sessions WHERE token = ?', token);
+      await this.run('DELETE FROM sessions WHERE token = ?', tokenHash);
       return null;
     }
     return await this.getUserById(session.user_id);
   }
 
   async deleteSession(token) {
-    await this.run('DELETE FROM sessions WHERE token = ?', token);
+    const tokenHash = crypto.createHmac('sha256', this.sessionSecret).update(token).digest('hex');
+    await this.run('DELETE FROM sessions WHERE token = ?', tokenHash);
   }
 
   // Workspaces
@@ -527,11 +539,12 @@ class Store {
 
   // Projects
   async createProject(name, description = '', workspaceId = null, actorId = null) {
-    const project = { id: id('project'), workspace_id: workspaceId, name, description, created_at: now() };
+    const project = { id: id('project'), workspace_id: workspaceId, owner_id: actorId, name, description, created_at: now() };
     await this.run(
-      'INSERT INTO projects VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO projects (id, workspace_id, owner_id, name, description, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       project.id,
       project.workspace_id,
+      project.owner_id,
       project.name,
       project.description,
       project.created_at
@@ -540,7 +553,20 @@ class Store {
     return project;
   }
 
-  async listProjects(workspaceId = null) {
+  async listProjects(workspaceId = null, userId = null) {
+    if (userId) {
+      const workspaceClause = workspaceId ? 'AND p.workspace_id = ?' : '';
+      const params = workspaceId ? [userId, userId, workspaceId] : [userId, userId];
+      return await this.all(`
+        SELECT DISTINCT p.*,
+          (SELECT id FROM revisions r WHERE r.project_id=p.id ORDER BY created_at DESC LIMIT 1) AS latest_revision_id,
+          (SELECT status FROM revisions r WHERE r.project_id=p.id ORDER BY created_at DESC LIMIT 1) AS latest_status
+        FROM projects p
+        LEFT JOIN workspace_members wm ON p.workspace_id = wm.workspace_id AND wm.user_id = ?
+        WHERE (p.owner_id = ? OR wm.user_id IS NOT NULL) ${workspaceClause}
+        ORDER BY p.created_at DESC
+      `, ...params);
+    }
     if (workspaceId) {
       return await this.all(`
         SELECT p.*, 
@@ -562,6 +588,53 @@ class Store {
 
   async project(idValue) {
     return await this.get('SELECT * FROM projects WHERE id = ?', idValue);
+  }
+
+  async getProjectAccess(projectId, user) {
+    if (!user) return null;
+    const project = await this.project(projectId);
+    if (!project) return null;
+    if (user.is_global_admin) return { project, role: 'admin' };
+    if (project.owner_id === user.id) return { project, role: 'owner' };
+    if (project.workspace_id) {
+      const role = await this.getWorkspaceRole(project.workspace_id, user.id);
+      if (role) return { project, role };
+    }
+    return null;
+  }
+
+  async resourceBelongsToProject(resourceType, resourceId, projectId) {
+    const definitions = {
+      diagram: ['diagrams', 'id', 'project_id'], task: ['tasks', 'id', 'project_id'],
+      note: ['notes', 'id', 'project_id'], conversation: ['conversations', 'id', 'project_id'],
+      apiRequest: ['api_requests', 'id', 'project_id'], operation: ['operations', 'id', 'project_id'],
+      patch: ['patches', 'id', 'project_id']
+    };
+    if (resourceType === 'finding') {
+      return Boolean(await this.get('SELECT f.id FROM findings f JOIN revisions r ON f.revision_id=r.id WHERE f.id=? AND r.project_id=?', resourceId, projectId));
+    }
+    if (resourceType === 'task') {
+      return Boolean(await this.get(`
+        SELECT id FROM tasks WHERE id=? AND project_id=?
+        UNION ALL
+        SELECT pt.id FROM plan_tasks pt JOIN plans p ON pt.plan_id=p.id WHERE pt.id=? AND p.project_id=?
+        LIMIT 1
+      `, resourceId, projectId, resourceId, projectId));
+    }
+    const def = definitions[resourceType];
+    if (!def) return true;
+    return Boolean(await this.get(`SELECT ${def[1]} FROM ${def[0]} WHERE ${def[1]}=? AND ${def[2]}=?`, resourceId, projectId));
+  }
+
+  async listAuditEventsForUser(user) {
+    if (user?.is_global_admin) return this.all('SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 100');
+    return this.all(`
+      SELECT DISTINCT a.* FROM audit_events a
+      LEFT JOIN projects p ON a.project_id=p.id
+      LEFT JOIN workspace_members wm ON p.workspace_id=wm.workspace_id AND wm.user_id=?
+      WHERE a.actor_id=? OR p.owner_id=? OR wm.user_id IS NOT NULL
+      ORDER BY a.created_at DESC LIMIT 100
+    `, user.id, user.id, user.id);
   }
 
   async deleteProject(projectId, actorId = null) {

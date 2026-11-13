@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   codepilot:
     build:
@@ -10,19 +8,15 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - CODEPILOT_HOST=0.0.0.0
-      - CODEPILOT_PORT=3000
-      - CODEPILOT_SESSION_SECRET=prod-insecure-change-this-in-production-vault-key-1234
+      NODE_ENV: production
+      CODEPILOT_HOST: 0.0.0.0
+      CODEPILOT_PORT: 3000
+      CODEPILOT_AUTH_ENABLED: "true"
+      CODEPILOT_SESSION_SECRET: ${CODEPILOT_SESSION_SECRET:?CODEPILOT_SESSION_SECRET must be set to a strong random value}
+      DATABASE_URL: ${DATABASE_URL:-}
     volumes:
       - codepilot-data:/app/.data
-    networks:
-      - codepilot-net
 
 volumes:
   codepilot-data:
     driver: local
-
-networks:
-  codepilot-net:
-    driver: bridge

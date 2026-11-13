@@ -1,62 +1,24 @@
-# Feature Implementation & Verification Matrix
+# Feature Implementation Matrix
 
-**Assessment Key:**
-- `IMPLEMENTED_AND_TESTED`: Verified with passing unit or integration tests.
-- `IMPLEMENTED_NOT_VERIFIED`: Code exists and runs in runtime, but lacks dedicated automated test file.
-- `PARTIALLY_IMPLEMENTED`: Core functionality implemented with known boundaries or limited scope.
-- `PLACEHOLDER`: UI mockup or stub without backend persistence.
-- `MISSING`: Feature absent from codebase.
-- `BLOCKED_EXTERNAL_CONFIGURATION`: Requires external third-party API credentials (e.g. OpenAI / Anthropic key, live cloud tokens).
+Assessment date: 2026-11-13
 
----
+| Capability | Status | Evidence / boundary |
+| --- | --- | --- |
+| Central API authentication | Implemented and tested | Public route allowlist plus anonymous/invalid/valid-session regression tests. |
+| Project ownership and workspace RBAC | Implemented and tested | Owner migration, scoped listing, role permission checks, cross-user denial tests. |
+| Nested resource isolation | Implemented and tested | Direct child identifiers must belong to the authorized URL project. |
+| Audit isolation | Implemented and tested | Cross-user audit test verifies inaccessible project events are absent. |
+| Production secret validation | Implemented and tested | Missing, weak, known placeholder, disabled-auth, and valid production configurations tested. |
+| Session storage protection | Implemented and tested | Random bearer token returned once; only its HMAC identifier is persisted. |
+| ZIP and remote import protections | Implemented and tested | Existing archive and SSRF suites remain passing. |
+| Repository inventory and analysis | Implemented and tested | Existing analyzer, architecture, flow, and impact suites remain passing. |
+| Test execution truthfulness | Implemented and tested | Real subprocesses map to `PASS`/`FAIL`; unexecuted serverless branches return `NOT_EXECUTED`. |
+| Production Docker image | Implemented and tested | Real image build succeeded; container became healthy as non-root `codepilot`; health returned HTTP 200. |
+| SQLite persistence | Implemented and tested | Local integration suite and healthy container use Node built-in SQLite. |
+| PostgreSQL adapter | Implemented, incompletely verified | Schema and adapter exist; no live PostgreSQL service was exercised in Phase 1. |
+| External CI result retrieval | Not implemented | No provider integration exists; endpoints report `NOT_EXECUTED`. |
+| Untrusted test sandbox | Blocked | Requires isolated worker infrastructure. |
+| Real cloud deployment | Blocked external configuration | No deployment was requested or executed in Phase 1. |
+| Authentication rate limiting | Not implemented | Reverse-proxy protection is required until an application limiter is added. |
 
-## Matrix of Capabilities
-
-| Feature Domain | Capability | Status | Evidence / Verification Method |
-|---|---|---|---|
-| **Identity & Access** | Password hashing (scrypt) & verification | `IMPLEMENTED_AND_TESTED` | `tests/auth.test.js` |
-| | Session token generation & Bearer auth | `IMPLEMENTED_AND_TESTED` | `tests/auth.test.js`, `tests/api.test.js` |
-| | RBAC hierarchy (`owner` > `admin` > `editor` > `viewer`) | `IMPLEMENTED_AND_TESTED` | `tests/auth.test.js` |
-| | Email RFC validation & Password strength check | `IMPLEMENTED_AND_TESTED` | `tests/auth.test.js`, `src/server.js:220` |
-| **Workspace & Projects** | Multi-tenant workspace isolation | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Project CRUD & SQLite/Postgres persistence | `IMPLEMENTED_AND_TESTED` | `tests/api.test.js`, `tests/workspaces.test.js` |
-| | Serverless cold-start project auto-healing | `IMPLEMENTED_AND_TESTED` | `tests/serverless_healing.test.js` |
-| **Repository Ingestion** | Local ZIP upload & extraction | `IMPLEMENTED_AND_TESTED` | `tests/archive.test.js` |
-| | ZIP Slip & traversal prevention | `IMPLEMENTED_AND_TESTED` | `tests/archive.test.js` |
-| | Remote URL archive fetcher | `IMPLEMENTED_AND_TESTED` | `tests/ssrf.test.js` |
-| | GitHub repository link ingestion & branch normalizer | `IMPLEMENTED_AND_TESTED` | `tests/github_importer.test.js` |
-| | SSRF protection (loopback, private CIDRs, metadata IP) | `IMPLEMENTED_AND_TESTED` | `tests/ssrf.test.js` |
-| **Source Analysis** | Multi-language extension detection | `IMPLEMENTED_AND_TESTED` | `tests/analyzers.test.js` |
-| | JavaScript / TypeScript AST analysis via `acorn` | `IMPLEMENTED_AND_TESTED` | `tests/analyzers.test.js` |
-| | Python symbol & FastAPI route extraction | `IMPLEMENTED_AND_TESTED` | `tests/analyzers.test.js` |
-| | Dockerfile linting & root user detection | `IMPLEMENTED_AND_TESTED` | `tests/analyzers.test.js` |
-| | Secret redaction (AWS, GitHub, Private keys) | `IMPLEMENTED_AND_TESTED` | `tests/analyzers.test.js` |
-| **CodePilot Flow** | 7 Visual topology diagrams (Architecture, Call, Flow, etc.) | `IMPLEMENTED_AND_TESTED` | `tests/flow.test.js` |
-| | Interactive SVG diagram generation & zoom/pan | `IMPLEMENTED_AND_TESTED` | `public/app.js`, `public/index.html` |
-| **Architecture Reports** | 15-Section comprehensive architecture report | `IMPLEMENTED_AND_TESTED` | `tests/architecture.test.js` |
-| | Markdown & JSON report export | `IMPLEMENTED_AND_TESTED` | `tests/architecture.test.js` |
-| **Impact Engine** | TypedDependencyGraph with multi-evidence edges | `IMPLEMENTED_AND_TESTED` | `tests/impact_graph.test.js` |
-| | Incremental invalidation & graph isomorphism check | `IMPLEMENTED_AND_TESTED` | `tests/impact_incremental.test.js` |
-| | Direct, transitive, and uncertainty cone computation | `IMPLEMENTED_AND_TESTED` | `tests/impact_incremental.test.js` |
-| | 3-Tier test selection (`all`, `changed-file`, `evidence-aware`) | `IMPLEMENTED_AND_TESTED` | `tests/impact_selection.test.js` |
-| | Isolated test execution with secret scrubbing | `IMPLEMENTED_AND_TESTED` | `tests/impact_selection.test.js` |
-| | Impact analysis persistence & REST history | `IMPLEMENTED_AND_TESTED` | `tests/impact_api.test.js` |
-| **Developer Workspaces** | Kanban Task management (CRUD & status transitions) | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Knowledge Base notes (CRUD with categories & tags) | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | API Studio (Request tester, runner, & collection) | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Database Studio (Schema inspector & query explorer) | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Security Findings Center & suppression audit trail | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Implementation Planner & Unified diff patch generator | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Patch Application & Safe Rollback engine | `IMPLEMENTED_AND_TESTED` | `tests/workspaces.test.js` |
-| | Operations & Background Job lifecycle telemetry | `IMPLEMENTED_AND_TESTED` | `tests/operations.test.js` |
-| **Cloud & Deployment** | Multi-stage Dockerfile & Compose generation | `IMPLEMENTED_AND_TESTED` | `tests/docker.test.js` |
-| | Docker failure diagnostic engine | `IMPLEMENTED_AND_TESTED` | `tests/docker.test.js` |
-| | Deployment readiness evaluation | `IMPLEMENTED_AND_TESTED` | `tests/api.test.js` |
-| | Vercel Serverless entry point & path rewrites | `IMPLEMENTED_AND_TESTED` | `tests/vercel.test.js` |
-| | Cloud provider real deployment execution | `BLOCKED_EXTERNAL_CONFIGURATION` | Requires third-party cloud deployment keys |
-| **AI Assistant** | Code explanation, test generation, refactor advice | `IMPLEMENTED_AND_TESTED` | In-memory context-grounded fallback verified |
-| | External LLM provider execution (OpenAI, Anthropic, Gemini) | `BLOCKED_EXTERNAL_CONFIGURATION` | Operates gracefully via local fallback without API keys |
-| **Frontend UI/UX** | Warm Ivory & Muted Amber SaaS theme | `IMPLEMENTED_AND_TESTED` | `public/styles.css`, `public/index.html` |
-| | Dark mode toggle with persistent local storage | `IMPLEMENTED_AND_TESTED` | `public/styles.css`, `public/app.js` |
-| | Command Palette (`Ctrl+K`) global search modal | `IMPLEMENTED_AND_TESTED` | `public/index.html`, `public/app.js` |
-| | Complete 133/133 DOM element ID matching | `IMPLEMENTED_AND_TESTED` | Verified via AST scan |
+The previous serverless project “auto-healing” behavior was removed because accepting arbitrary project IDs created an authorization bypass and uncontrolled data creation.

@@ -21,6 +21,7 @@ test('Impact Engine REST API Lifecycle: graph, analyze, select-tests, run-tests,
   const app = createApp({
     store,
     config: {
+      authEnabled: false,
       limits: {
         maxUploadBytes: 10 * 1024 * 1024,
         maxRemoteDownloadBytes: 100 * 1024 * 1024,

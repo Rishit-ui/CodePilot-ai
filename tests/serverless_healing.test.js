@@ -7,7 +7,7 @@ const { createApp } = require('../src/server');
 const { Store } = require('../src/db');
 const { makeZip } = require('./helpers');
 
-test('Serverless auto-heals non-existent project on cold start container during import-url or revision requests', async (t) => {
+test('Serverless rejects non-existent project identifiers without creating data', async (t) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-healing-'));
   const store = new Store(tmpDir);
 
@@ -21,6 +21,7 @@ test('Serverless auto-heals non-existent project on cold start container during 
   const app = createApp({
     store,
     config: {
+      authEnabled: false,
       limits: {
         maxUploadBytes: 10 * 1024 * 1024,
         maxRemoteDownloadBytes: 100 * 1024 * 1024,
@@ -35,7 +36,7 @@ test('Serverless auto-heals non-existent project on cold start container during 
   // A random projectId from another ephemeral container
   const foreignProjectId = 'project_coldstart123';
 
-  // 1. Direct ZIP import with non-existent project ID auto-heals
+  // Direct ZIP import with an unowned/non-existent ID must not create a project.
   const zipBuf = makeZip([{ name: 'app.js', content: 'console.log("auto healed");' }]);
   
   const mockReq = {
@@ -58,13 +59,10 @@ test('Serverless auto-heals non-existent project on cold start container during 
   };
 
   await app.handler(mockReq, mockRes);
-  assert.equal(statusCode, 201, `Expected 201 Created but got ${statusCode}: ${responseBody}`);
-
+  assert.equal(statusCode, 404, `Expected 404 but got ${statusCode}: ${responseBody}`);
   const parsed = JSON.parse(responseBody);
-  assert.ok(parsed.revision?.id);
+  assert.equal(parsed.error?.code, 'PROJECT_NOT_FOUND');
 
-  // 2. The project was auto-healed in the database
   const projectInDb = await store.project(foreignProjectId);
-  assert.ok(projectInDb, 'Project should exist in DB after auto-healing');
-  assert.equal(projectInDb.id, foreignProjectId);
+  assert.equal(projectInDb, null, 'Rejected project identifiers must not create database rows');
 });

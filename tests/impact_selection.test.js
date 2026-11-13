@@ -127,12 +127,12 @@ test('IsolatedTestRunner: enforces command allowlist, command synthesis, and sec
 
   // 2. Reject unapproved test runner
   const badResult = await runner.execute('curl http://malicious-server.com');
-  assert.equal(badResult.status, 'error');
+  assert.equal(badResult.status, 'BLOCKED');
   assert.ok(badResult.output.includes('Security violation'));
 
   // 3. Execution of approved command
   const execResult = await runner.execute('node --test tests/impact_graph.test.js');
-  assert.equal(execResult.status, 'passed');
+  assert.equal(execResult.status, 'PASS');
   assert.equal(execResult.exitCode, 0);
   assert.ok(execResult.durationMs >= 0);
 });
