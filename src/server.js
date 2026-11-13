@@ -9,6 +9,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { loadConfig } = require('./config');
 const { Store } = require('./db');
+const { validateEmail, validatePasswordStrength } = require('./auth');
 const { ArchiveError, readZip, contentHash } = require('./archive');
 const { analyze } = require('./analyzer');
 const { validateUrlForSSRF, fetchRemoteZip, fetchGithubOrRemoteZip, normalizeGithubRepoUrl, SSRFError } = require('./importer');
@@ -219,6 +220,13 @@ function createApp(options = {}) {
         const { email, password, name } = body;
         if (!email || !password || !name) {
           return error(response, 400, 'MISSING_FIELDS', 'Email, password, and name are required.');
+        }
+        if (!validateEmail(email)) {
+          return error(response, 400, 'INVALID_EMAIL', 'Please provide a valid email address.');
+        }
+        const pwCheck = validatePasswordStrength(password);
+        if (!pwCheck.valid) {
+          return error(response, 400, 'WEAK_PASSWORD', pwCheck.reason);
         }
         if (await store.getUserByEmail(email)) {
           return error(response, 409, 'USER_EXISTS', 'A user with this email already exists.');

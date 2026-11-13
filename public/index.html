@@ -1,38 +1,38 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="CodePilot AI — Professional AI Software Engineering & Architecture Platform">
+    <meta name="theme-color" content="#B8860B">
     <title>CodePilot AI — Professional AI Engineering Platform</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body class="app-layout">
     <a class="skip-link" href="#main-view">Skip to main content</a>
 
-    <!-- Top Navigation Header -->
-    <header class="app-header">
+    <!-- ================================================================
+         Top Navigation Header
+         ================================================================ -->
+    <header class="app-header" role="banner">
       <div class="header-left">
-        <button id="btn-sidebar-toggle" type="button" class="icon-btn" aria-label="Toggle navigation sidebar" title="Toggle navigation">
-          ☰
-        </button>
-        <div class="brand">
-          <span class="brand-logo">CP</span>
+        <button id="btn-sidebar-toggle" type="button" class="icon-btn" aria-label="Toggle navigation sidebar" title="Toggle sidebar">☰</button>
+        <div class="brand" role="img" aria-label="CodePilot AI">
+          <span class="brand-logo" aria-hidden="true">CP</span>
           <span class="brand-name">CodePilot AI</span>
         </div>
-        <div class="breadcrumbs" aria-label="Breadcrumb navigation">
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
           <span id="bc-root" class="breadcrumb-item">Projects</span>
-          <span class="breadcrumb-separator">/</span>
+          <span class="breadcrumb-separator" aria-hidden="true">/</span>
           <span id="bc-project" class="breadcrumb-item font-semibold">Select Project</span>
-          <span class="breadcrumb-separator">/</span>
-          <span id="bc-page" class="breadcrumb-item active">Overview</span>
-        </div>
+          <span class="breadcrumb-separator" aria-hidden="true">/</span>
+          <span id="bc-page" class="breadcrumb-item active" aria-current="page">Overview</span>
+        </nav>
       </div>
 
       <div class="header-center">
-        <!-- Project Selector in Top Bar -->
         <div class="project-selector-wrap">
-          <select id="top-project-select" aria-label="Current Project">
+          <select id="top-project-select" aria-label="Select active project" title="Switch project">
             <option value="">Select a project…</option>
           </select>
           <button id="btn-new-project-modal" type="button" class="btn btn-primary btn-sm">+ New Project</button>
@@ -40,144 +40,152 @@
       </div>
 
       <div class="header-right">
-        <!-- Active Operation Indicator -->
-        <div id="active-op-indicator" class="active-op-pill hidden" role="status" title="Active background operation">
-          <span class="spinner-small"></span>
-          <span id="active-op-label">Running Analysis…</span>
+        <div id="active-op-indicator" class="active-op-pill hidden" role="status" aria-live="polite" title="Active background operation">
+          <span class="spinner-small" aria-hidden="true"></span>
+          <span id="active-op-label">Running…</span>
         </div>
-
-        <button id="btn-open-palette" type="button" class="btn btn-secondary btn-sm" aria-label="Open global search">
-          🔍 Search &amp; Actions <kbd>Ctrl+K</kbd>
+        <button id="btn-open-palette" type="button" class="btn btn-secondary btn-sm" aria-label="Open search and command palette (Ctrl+K)">
+          🔍 Search <kbd aria-label="keyboard shortcut">Ctrl+K</kbd>
         </button>
-        <button id="btn-theme-toggle" type="button" class="icon-btn" title="Toggle Theme" aria-label="Toggle theme">
-          🌓
-        </button>
-        <span id="service-pill" class="pill pill-idle" role="status">Connecting…</span>
+        <button id="btn-theme-toggle" type="button" class="icon-btn" title="Toggle light/dark theme" aria-label="Toggle theme">🌓</button>
+        <span id="service-pill" class="pill pill-idle" role="status" aria-live="polite">Connecting…</span>
       </div>
     </header>
 
     <div class="app-body">
-      <!-- Collapsible Left Sidebar Navigation -->
-      <aside id="app-sidebar" class="app-sidebar" aria-label="Primary Navigation">
-        <nav class="sidebar-nav">
-          <!-- Main Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">MAIN</span>
-            <button type="button" class="sidebar-link active" data-view="view-overview">
-              <span class="nav-icon">📊</span>
+      <!-- ==============================================================
+           Left Sidebar Navigation
+           ============================================================== -->
+      <aside id="app-sidebar" class="app-sidebar" aria-label="Primary navigation">
+        <nav class="sidebar-nav" role="navigation">
+
+          <!-- OVERVIEW -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-overview">
+            <span id="navgroup-overview" class="nav-group-title">OVERVIEW</span>
+            <button type="button" class="sidebar-link active" data-view="view-overview" aria-label="Project Overview">
+              <span class="nav-icon" aria-hidden="true">📊</span>
               <span class="nav-label">Project Overview</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-operations">
-              <span class="nav-icon">⚡</span>
+            <button type="button" class="sidebar-link" data-view="view-operations" aria-label="Operations and Jobs">
+              <span class="nav-icon" aria-hidden="true">⚡</span>
               <span class="nav-label">Operations &amp; Jobs</span>
-              <span id="sidebar-op-badge" class="nav-badge hidden">0</span>
+              <span id="sidebar-op-badge" class="nav-badge hidden" aria-label="active operations">0</span>
             </button>
           </div>
 
-          <!-- Understand Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">UNDERSTAND</span>
-            <button type="button" class="sidebar-link" data-view="view-flow">
-              <span class="nav-icon">🏛️</span>
-              <span class="nav-label">CodePilot Flow</span>
-            </button>
-            <button type="button" class="sidebar-link" data-view="view-code">
-              <span class="nav-icon">📂</span>
+          <!-- EXPLORE -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-explore">
+            <span id="navgroup-explore" class="nav-group-title">EXPLORE</span>
+            <button type="button" class="sidebar-link" data-view="view-code" aria-label="Repository Explorer">
+              <span class="nav-icon" aria-hidden="true">📂</span>
               <span class="nav-label">Repository Explorer</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-analysis">
-              <span class="nav-icon">🔍</span>
-              <span class="nav-label">Repository Analysis</span>
+            <button type="button" class="sidebar-link" data-view="view-flow" aria-label="CodePilot Flow">
+              <span class="nav-icon" aria-hidden="true">🏛️</span>
+              <span class="nav-label">CodePilot Flow</span>
             </button>
           </div>
 
-          <!-- Build Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">BUILD</span>
-            <button type="button" class="sidebar-link" data-view="view-ai">
-              <span class="nav-icon">🤖</span>
+          <!-- INTELLIGENCE -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-intel">
+            <span id="navgroup-intel" class="nav-group-title">INTELLIGENCE</span>
+            <button type="button" class="sidebar-link" data-view="view-ai" aria-label="AI Assistant">
+              <span class="nav-icon" aria-hidden="true">🤖</span>
               <span class="nav-label">AI Assistant</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-planner">
-              <span class="nav-icon">📝</span>
+            <button type="button" class="sidebar-link" data-view="view-analysis" aria-label="Architecture Report">
+              <span class="nav-icon" aria-hidden="true">🔍</span>
+              <span class="nav-label">Architecture Report</span>
+            </button>
+          </div>
+
+          <!-- CHANGE -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-change">
+            <span id="navgroup-change" class="nav-group-title">CHANGE</span>
+            <button type="button" class="sidebar-link" data-view="view-impact" aria-label="Impact Analysis">
+              <span class="nav-icon" aria-hidden="true">💥</span>
+              <span class="nav-label">Impact Analysis</span>
+            </button>
+            <button type="button" class="sidebar-link" data-view="view-planner" aria-label="Implementation Planner">
+              <span class="nav-icon" aria-hidden="true">📝</span>
               <span class="nav-label">Implementation Planner</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-patches">
-              <span class="nav-icon">🔄</span>
+            <button type="button" class="sidebar-link" data-view="view-patches" aria-label="Patch Manager">
+              <span class="nav-icon" aria-hidden="true">🔄</span>
               <span class="nav-label">Patch Manager</span>
             </button>
           </div>
 
-          <!-- Verify Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">VERIFY</span>
-            <button type="button" class="sidebar-link" data-view="view-findings">
-              <span class="nav-icon">🛡️</span>
+          <!-- VERIFY -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-verify">
+            <span id="navgroup-verify" class="nav-group-title">VERIFY</span>
+            <button type="button" class="sidebar-link" data-view="view-findings" aria-label="Security Center">
+              <span class="nav-icon" aria-hidden="true">🛡️</span>
               <span class="nav-label">Security Center</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-tests">
-              <span class="nav-icon">🧪</span>
+            <button type="button" class="sidebar-link" data-view="view-tests" aria-label="Testing and Debugging">
+              <span class="nav-icon" aria-hidden="true">🧪</span>
               <span class="nav-label">Testing &amp; Debugging</span>
-            </button>
-          
-            <button type="button" class="sidebar-link" data-view="view-impact">
-              <span class="nav-icon">&#x26A1;</span>
-              <span class="nav-label">Impact Analysis</span>
             </button>
           </div>
 
-          <!-- Data & APIs Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">DATA &amp; APIS</span>
-            <button type="button" class="sidebar-link" data-view="view-api">
-              <span class="nav-icon">🌐</span>
+          <!-- DATA & APIS -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-data">
+            <span id="navgroup-data" class="nav-group-title">DATA &amp; APIS</span>
+            <button type="button" class="sidebar-link" data-view="view-api" aria-label="API Studio">
+              <span class="nav-icon" aria-hidden="true">🌐</span>
               <span class="nav-label">API Studio</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-db">
-              <span class="nav-icon">💾</span>
+            <button type="button" class="sidebar-link" data-view="view-db" aria-label="Database Studio">
+              <span class="nav-icon" aria-hidden="true">💾</span>
               <span class="nav-label">Database Studio</span>
             </button>
           </div>
 
-          <!-- Ship Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">SHIP</span>
-            <button type="button" class="sidebar-link" data-view="view-docker">
-              <span class="nav-icon">🐳</span>
+          <!-- BUILD -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-build">
+            <span id="navgroup-build" class="nav-group-title">BUILD</span>
+            <button type="button" class="sidebar-link" data-view="view-docker" aria-label="Docker and Containers">
+              <span class="nav-icon" aria-hidden="true">🐳</span>
               <span class="nav-label">Docker &amp; Containers</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-deploy">
-              <span class="nav-icon">🚀</span>
+            <button type="button" class="sidebar-link" data-view="view-deploy" aria-label="Deployment Center">
+              <span class="nav-icon" aria-hidden="true">🚀</span>
               <span class="nav-label">Deployment Center</span>
             </button>
           </div>
 
-          <!-- Productivity Section -->
-          <div class="nav-group">
-            <span class="nav-group-title">PRODUCTIVITY</span>
-            <button type="button" class="sidebar-link" data-view="view-tasks">
-              <span class="nav-icon">📋</span>
-              <span class="nav-label">Tasks &amp; Kanban</span>
+          <!-- WORKSPACE -->
+          <div class="nav-group" role="group" aria-labelledby="navgroup-workspace">
+            <span id="navgroup-workspace" class="nav-group-title">WORKSPACE</span>
+            <button type="button" class="sidebar-link" data-view="view-tasks" aria-label="Tasks and Kanban">
+              <span class="nav-icon" aria-hidden="true">📋</span>
+              <span class="nav-label">Tasks</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-notes">
-              <span class="nav-icon">📓</span>
+            <button type="button" class="sidebar-link" data-view="view-notes" aria-label="Knowledge Base">
+              <span class="nav-icon" aria-hidden="true">📓</span>
               <span class="nav-label">Knowledge Base</span>
             </button>
-            <button type="button" class="sidebar-link" data-view="view-audit">
-              <span class="nav-icon">📜</span>
+            <button type="button" class="sidebar-link" data-view="view-audit" aria-label="Audit History">
+              <span class="nav-icon" aria-hidden="true">📜</span>
               <span class="nav-label">Audit History</span>
             </button>
           </div>
+
         </nav>
       </aside>
 
-      <!-- Main Dedicated Workspace Area -->
-      <main id="main-view" class="main-content" role="main">
-        <!-- Banner Message when No Project Selected -->
-        <div id="no-project-banner" class="hero-onboarding">
+      <!-- ==============================================================
+           Main Content Area
+           ============================================================== -->
+      <main id="main-view" class="main-content" role="main" tabindex="-1">
+
+        <!-- No-project Onboarding Banner -->
+        <div id="no-project-banner" class="hero-onboarding" role="region" aria-label="Getting started">
           <div class="hero-content">
+            <div style="font-size:3rem; margin-bottom:1rem;" aria-hidden="true">🧭</div>
             <h2>Welcome to CodePilot AI</h2>
-            <p>An intelligent, visual AI development platform designed for understanding, architecting, building, testing, and shipping production software.</p>
+            <p>An intelligent AI development platform for understanding, architecting, building, testing, and shipping production software — with grounded, evidence-first analysis.</p>
             <div class="hero-actions">
               <button id="btn-hero-create" type="button" class="btn btn-primary">+ Create New Project</button>
               <button id="btn-hero-sample" type="button" class="btn btn-secondary">Explore Sample Project</button>
@@ -185,306 +193,342 @@
           </div>
         </div>
 
+        <!-- Active Project Views Container -->
         <div id="active-project-views" class="hidden">
-          <!-- ==========================================
+
+          <!-- ============================================================
                View 1: Project Overview & Health
-               ========================================== -->
-          <section id="view-overview" class="page-view active">
+               ============================================================ -->
+          <section id="view-overview" class="page-view active" role="region" aria-labelledby="view-overview-title">
             <div class="page-header">
               <div>
                 <span class="badge badge-accent">PROJECT OVERVIEW</span>
-                <h2 id="overview-project-title" class="page-title">—</h2>
+                <h2 id="view-overview-title" id="overview-project-title" class="page-title" style="margin-top:0.35rem;">—</h2>
                 <p id="overview-revision-meta" class="meta-text">No revision imported yet.</p>
               </div>
               <div class="page-header-actions">
-                <button id="btn-trigger-analysis-quick" type="button" class="btn btn-accent">⚡ Run Analysis</button>
-                <a id="btn-export-report-overview" class="btn btn-secondary hidden" href="#" download>Export Architecture (.md)</a>
-                <button id="btn-delete-project-overview" type="button" class="btn btn-secondary text-danger">Delete Project</button>
+                <button id="btn-trigger-analysis-quick" type="button" class="btn btn-primary">⚡ Run Analysis</button>
+                <a id="btn-export-report-overview" class="btn btn-secondary hidden" href="#" download aria-label="Export architecture report as markdown">Export Report (.md)</a>
+                <button id="btn-delete-project-overview" type="button" class="btn btn-danger" aria-label="Delete current project">Delete Project</button>
               </div>
             </div>
 
             <!-- Repository Ingestion Card -->
-            <div class="panel">
-              <h3 class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
-              <p class="panel-desc">Import codebase as immutable data. Directly import via public GitHub repository link or upload a ZIP archive. Zip Slip, symlinks, and SSRF attacks are strictly blocked.</p>
-              <div class="import-tabs">
-                <button type="button" id="tab-btn-github" class="tab-btn active" onclick="switchImportTab('github')">🔗 GitHub Repository Link</button>
-                <button type="button" id="tab-btn-zip" class="tab-btn" onclick="switchImportTab('zip')">📁 Upload ZIP Archive</button>
-                <button type="button" id="tab-btn-url" class="tab-btn" onclick="switchImportTab('url')">🌐 Direct ZIP URL</button>
+            <div class="panel" role="region" aria-labelledby="ingestion-heading">
+              <h3 id="ingestion-heading" class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>
+              <p class="panel-desc">Import your codebase as immutable data. Zip Slip, symlinks, and SSRF attacks are strictly blocked at the server layer.</p>
+
+              <div class="import-tabs" role="tablist" aria-label="Import method">
+                <button type="button" id="tab-btn-github" class="tab-btn active" role="tab" aria-selected="true" aria-controls="github-import-form" onclick="switchImportTab('github')">🔗 GitHub Repository</button>
+                <button type="button" id="tab-btn-zip" class="tab-btn" role="tab" aria-selected="false" aria-controls="zip-import-form" onclick="switchImportTab('zip')">📁 Upload ZIP</button>
+                <button type="button" id="tab-btn-url" class="tab-btn" role="tab" aria-selected="false" aria-controls="url-import-form" onclick="switchImportTab('url')">🌐 Direct ZIP URL</button>
               </div>
 
-              <!-- GitHub Repo Direct Link Form -->
-              <form id="github-import-form" class="import-form">
+              <!-- GitHub -->
+              <form id="github-import-form" class="import-form" role="tabpanel" aria-labelledby="tab-btn-github" novalidate>
                 <div class="form-row">
-                  <input id="github-repo-input" type="text" placeholder="https://github.com/owner/repository (e.g. https://github.com/expressjs/express)" required aria-label="GitHub Repository Link">
-                  <button type="submit" class="btn btn-primary">Fetch &amp; Ingest GitHub Repo</button>
+                  <input id="github-repo-input" type="text" placeholder="https://github.com/owner/repository" required aria-label="GitHub Repository URL">
+                  <button type="submit" class="btn btn-primary" style="flex-shrink:0;">Fetch &amp; Ingest</button>
                 </div>
-                <small class="muted" style="display:block; margin-top:0.4rem;">Supports full GitHub URLs (e.g. <code>https://github.com/owner/repo</code>, branches <code>/tree/dev</code>, or shorthand <code>owner/repo</code>). Automatically resolves default branch (main/master).</small>
+                <small class="muted" style="display:block; margin-top:0.4rem;">Supports full GitHub URLs, branch refs (<code>/tree/dev</code>), or shorthand <code>owner/repo</code>. Resolves default branch automatically. Up to 100MB.</small>
               </form>
 
-              <!-- ZIP File Upload Form -->
-              <form id="zip-import-form" class="import-form hidden">
+              <!-- ZIP Upload -->
+              <form id="zip-import-form" class="import-form hidden" role="tabpanel" aria-labelledby="tab-btn-zip" novalidate>
                 <div class="form-row">
-                  <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive">
-                  <button type="submit" class="btn btn-primary">Validate &amp; Ingest ZIP</button>
+                  <input id="zip-file-input" type="file" accept="application/zip,.zip" required aria-label="Select ZIP archive" style="flex:1;">
+                  <button type="submit" class="btn btn-primary" style="flex-shrink:0;">Validate &amp; Ingest</button>
                 </div>
-                <small id="zip-file-hint" class="muted" style="display:block; margin-top:0.4rem;">Direct upload limit: 4.5MB (serverless boundary). For larger repositories, use the <strong>🔗 GitHub Repository Link</strong> tab (supports up to 100MB directly).</small>
+                <small id="zip-file-hint" class="muted" style="display:block; margin-top:0.4rem;">Direct upload limit: 4.5MB (serverless proxy limit). For larger repos, use the GitHub tab (up to 100MB).</small>
               </form>
 
-              <!-- Direct URL Form -->
-              <form id="url-import-form" class="import-form hidden">
+              <!-- Direct URL -->
+              <form id="url-import-form" class="import-form hidden" role="tabpanel" aria-labelledby="tab-btn-url" novalidate>
                 <div class="form-row">
                   <input id="remote-url-input" type="url" placeholder="https://example.com/archive.zip" aria-label="Remote archive URL">
-                  <button type="submit" class="btn btn-primary">Fetch &amp; Ingest (SSRF-Safe)</button>
+                  <button type="submit" class="btn btn-primary" style="flex-shrink:0;">Fetch (SSRF-Safe)</button>
                 </div>
               </form>
+
               <div id="import-feedback" class="feedback-msg" role="status" aria-live="polite"></div>
             </div>
 
-            <!-- Stats Overview Grid -->
-            <div id="stats-overview" class="stats-grid" aria-label="Repository Statistics"></div>
+            <!-- Health Stat Cards -->
+            <div id="stats-overview" class="stats-grid" aria-label="Repository statistics" role="region"></div>
 
-            <!-- Quick Action Hub Cards -->
+            <!-- Quick Actions + Recent Ops -->
             <div class="grid-2-col">
               <div class="panel">
-                <h4 class="subheading">Suggested Next Actions</h4>
-                <div class="quick-actions-list">
-                  <button type="button" class="quick-action-item" onclick="navigateToView('view-flow')">
-                    <span class="qa-icon">🏛️</span>
+                <h4 class="panel-subtitle">Suggested Next Actions</h4>
+                <div class="quick-actions-list" role="list">
+                  <button type="button" class="quick-action-item" role="listitem" onclick="navigateToView('view-flow')">
+                    <span class="qa-icon" aria-hidden="true">🏛️</span>
                     <div>
                       <strong>Explore CodePilot Flow</strong>
-                      <p class="muted">Visualize 7 architectural diagrams computed directly from AST symbols.</p>
+                      <p class="muted">Visualize 7 architectural diagrams computed from AST symbols.</p>
                     </div>
                   </button>
-                  <button type="button" class="quick-action-item" onclick="navigateToView('view-ai')">
-                    <span class="qa-icon">🤖</span>
+                  <button type="button" class="quick-action-item" role="listitem" onclick="navigateToView('view-ai')">
+                    <span class="qa-icon" aria-hidden="true">🤖</span>
                     <div>
                       <strong>Ask AI About Codebase</strong>
                       <p class="muted">Evidence-grounded code QA citing exact file paths and source lines.</p>
                     </div>
                   </button>
-                  <button type="button" class="quick-action-item" onclick="navigateToView('view-findings')">
-                    <span class="qa-icon">🛡️</span>
+                  <button type="button" class="quick-action-item" role="listitem" onclick="navigateToView('view-findings')">
+                    <span class="qa-icon" aria-hidden="true">🛡️</span>
                     <div>
                       <strong>Review Security Findings</strong>
-                      <p class="muted">Examine exposed credentials, unpinned dependencies, and Docker configs.</p>
+                      <p class="muted">Exposed credentials, unpinned dependencies, and Docker misconfigs.</p>
                     </div>
                   </button>
-                  <button type="button" class="quick-action-item" onclick="navigateToView('view-api')">
-                    <span class="qa-icon">🌐</span>
+                  <button type="button" class="quick-action-item" role="listitem" onclick="navigateToView('view-api')">
+                    <span class="qa-icon" aria-hidden="true">🌐</span>
                     <div>
                       <strong>Test APIs in Studio</strong>
-                      <p class="muted">Send HTTP requests with built-in SSRF protection and response inspection.</p>
+                      <p class="muted">Send HTTP requests with built-in SSRF protection.</p>
                     </div>
                   </button>
                 </div>
               </div>
 
               <div class="panel">
-                <h4 class="subheading">Recent Operations &amp; Audits</h4>
+                <h4 class="panel-subtitle">Recent Operations &amp; Audits</h4>
                 <div id="overview-recent-ops" class="recent-ops-preview">
-                  <p class="muted">No recent operations executed.</p>
+                  <div class="empty-state" style="padding:2rem 0;">
+                    <span class="empty-state-icon">⚡</span>
+                    <p>No recent operations. Click <strong>Run Analysis</strong> to start one.</p>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
+          <!-- ============================================================
                View 2: Operations & Background Jobs
-               ========================================== -->
-          <section id="view-operations" class="page-view hidden">
+               ============================================================ -->
+          <section id="view-operations" class="page-view hidden" role="region" aria-labelledby="view-ops-title">
             <div class="page-header">
               <div>
                 <span class="badge badge-accent">ENGINEERING OPERATIONS</span>
-                <h2 class="page-title">Operations &amp; Background Jobs</h2>
-                <p class="meta-text">Inspect real operation lifecycles, execution stages, and telemetry.</p>
+                <h2 id="view-ops-title" class="page-title" style="margin-top:0.35rem;">Operations &amp; Background Jobs</h2>
+                <p class="meta-text">Inspect operation lifecycles, execution stages, and telemetry.</p>
               </div>
-              <button id="btn-launch-operation" type="button" class="btn btn-primary">+ Launch New Operation</button>
+              <button id="btn-launch-operation" type="button" class="btn btn-primary">+ Launch Operation</button>
             </div>
 
             <div class="panel">
               <h3 class="panel-subtitle">Operation History</h3>
               <div id="operations-list" class="operations-table-wrap">
-                <p class="muted">No operations recorded yet.</p>
+                <div class="empty-state">
+                  <span class="empty-state-icon">⚡</span>
+                  <h3>No operations yet</h3>
+                  <p>Launch an operation to start processing your repository.</p>
+                </div>
               </div>
             </div>
 
-            <!-- Active Operation Detail Modal / Box -->
-            <div id="operation-detail-panel" class="panel hidden">
+            <!-- Operation Detail Panel -->
+            <div id="operation-detail-panel" class="panel hidden" role="region" aria-labelledby="op-detail-title">
               <div class="panel-header-split">
                 <div>
-                  <span id="op-detail-badge" class="badge badge-accent">Running</span>
-                  <h3 id="op-detail-title" class="panel-subtitle">Repository Analysis</h3>
+                  <span id="op-detail-badge" class="badge badge-warning">Running</span>
+                  <h3 id="op-detail-title" class="panel-subtitle" style="margin-top:0.35rem;">Repository Analysis</h3>
                   <p id="op-detail-meta" class="meta-text">Started just now</p>
                 </div>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="$('#operation-detail-panel').classList.add('hidden')">Close Details</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('operation-detail-panel').classList.add('hidden')" aria-label="Close operation details">Close</button>
               </div>
-
-              <div class="progress-bar-container" style="margin: 1rem 0;">
-                <div id="op-detail-progress-fill" class="progress-fill" style="width: 0%;"></div>
+              <div class="progress-bar-container" style="margin:1rem 0;" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="op-detail-progress-fill" class="progress-fill" style="width:0%;"></div>
               </div>
-              <p id="op-detail-summary" class="meta-text">Processing...</p>
-
+              <p id="op-detail-summary" class="meta-text">Processing…</p>
               <h4 class="subheading" style="margin-top:1rem;">Lifecycle Events &amp; Stages</h4>
-              <div id="op-detail-events" class="op-events-list"></div>
+              <div id="op-detail-events" class="op-events-list" aria-live="polite"></div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 3: Signature Feature — CodePilot Flow
-               ========================================== -->
-          <section id="view-flow" class="page-view hidden">
+          <!-- ============================================================
+               View 3: CodePilot Flow (Signature Feature)
+               ============================================================ -->
+          <section id="view-flow" class="page-view hidden" role="region" aria-labelledby="view-flow-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">VISUAL ARCHITECTURE</span>
+                <h2 id="view-flow-title" class="page-title" style="margin-top:0.35rem;">CodePilot Flow</h2>
+                <p class="meta-text">7 architectural diagrams computed directly from AST symbols — pan, zoom, and inspect.</p>
+              </div>
+            </div>
             <div class="panel flow-container">
               <div class="flow-toolbar">
-                <div class="flow-types-bar">
-                  <button type="button" class="flow-type-btn active" data-flow="architecture">🏛️ Architecture</button>
-                  <button type="button" class="flow-type-btn" data-flow="call-graph">⚡ Call Graph</button>
-                  <button type="button" class="flow-type-btn" data-flow="flowchart">🔀 Execution Flowchart</button>
-                  <button type="button" class="flow-type-btn" data-flow="api-lifecycle">🌐 API Lifecycle</button>
-                  <button type="button" class="flow-type-btn" data-flow="dependency">📦 Dependencies</button>
-                  <button type="button" class="flow-type-btn" data-flow="change-impact">💥 Change Impact</button>
-                  <button type="button" class="flow-type-btn" data-flow="error-paths">⚠️ Error Paths</button>
+                <div class="flow-types-bar" role="group" aria-label="Diagram type">
+                  <button type="button" class="flow-type-btn active" data-flow="architecture" aria-pressed="true">🏛️ Architecture</button>
+                  <button type="button" class="flow-type-btn" data-flow="call-graph" aria-pressed="false">⚡ Call Graph</button>
+                  <button type="button" class="flow-type-btn" data-flow="flowchart" aria-pressed="false">🔀 Flowchart</button>
+                  <button type="button" class="flow-type-btn" data-flow="api-lifecycle" aria-pressed="false">🌐 API Lifecycle</button>
+                  <button type="button" class="flow-type-btn" data-flow="dependency" aria-pressed="false">📦 Dependencies</button>
+                  <button type="button" class="flow-type-btn" data-flow="change-impact" aria-pressed="false">💥 Change Impact</button>
+                  <button type="button" class="flow-type-btn" data-flow="error-paths" aria-pressed="false">⚠️ Error Paths</button>
                 </div>
                 <div class="flow-controls">
-                  <button id="btn-flow-zoom-in" type="button" class="flow-ctrl-btn" title="Zoom in">+</button>
-                  <button id="btn-flow-zoom-out" type="button" class="flow-ctrl-btn" title="Zoom out">-</button>
-                  <button id="btn-flow-reset" type="button" class="flow-ctrl-btn" title="Reset view">Fit View</button>
-                  <button id="btn-flow-save" type="button" class="flow-ctrl-btn" title="Save current diagram">💾 Save</button>
-                  <button id="btn-flow-export-svg" type="button" class="flow-ctrl-btn" title="Export as SVG">Export SVG</button>
-                  <button id="btn-flow-export-json" type="button" class="flow-ctrl-btn" title="Export diagram JSON">Export JSON</button>
+                  <button id="btn-flow-zoom-in" type="button" class="flow-ctrl-btn" title="Zoom in" aria-label="Zoom in">+</button>
+                  <button id="btn-flow-zoom-out" type="button" class="flow-ctrl-btn" title="Zoom out" aria-label="Zoom out">−</button>
+                  <button id="btn-flow-reset" type="button" class="flow-ctrl-btn" title="Reset view" aria-label="Reset diagram view">Fit View</button>
+                  <button id="btn-flow-save" type="button" class="flow-ctrl-btn" title="Save diagram" aria-label="Save current diagram">💾 Save</button>
+                  <button id="btn-flow-export-svg" type="button" class="flow-ctrl-btn" title="Export as SVG" aria-label="Export diagram as SVG">Export SVG</button>
+                  <button id="btn-flow-export-json" type="button" class="flow-ctrl-btn" title="Export JSON" aria-label="Export diagram JSON">Export JSON</button>
                 </div>
               </div>
 
               <div class="flow-workspace-grid">
                 <!-- Interactive Canvas -->
                 <div class="flow-canvas-wrapper" id="flow-canvas-box">
-                  <svg id="flow-svg-canvas" viewBox="0 0 1300 700" role="img" aria-label="Interactive CodePilot Flow Canvas">
+                  <svg id="flow-svg-canvas" viewBox="0 0 1300 700" role="img" aria-label="Interactive CodePilot Flow architectural diagram canvas">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-strong)"/>
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#C4C0B4"/>
                       </marker>
                       <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-cyan)"/>
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#B8860B"/>
                       </marker>
                     </defs>
                     <g id="flow-viewport">
                       <g id="flow-edges-layer"></g>
-                      <g id="flow-nodes-layer"></g>
+                      <g id="flow-nodes-layer">
+                        <text x="50%" y="50%" fill="#9C9A93" text-anchor="middle" font-size="14" font-family="system-ui,sans-serif">Select a project and import a revision to generate flow diagrams.</text>
+                      </g>
                     </g>
                   </svg>
                 </div>
 
-                <!-- Contextual Node Inspector -->
-                <div id="flow-inspector-panel" class="flow-inspector">
+                <!-- Node Inspector Panel -->
+                <div id="flow-inspector-panel" class="flow-inspector" role="complementary" aria-label="Node inspector">
                   <div class="flow-inspector-header">
                     <span id="inspector-badge" class="badge badge-accent">Static Analysis</span>
-                    <h3 id="inspector-title" class="flow-inspector-title">Select any node</h3>
-                    <p id="inspector-subtitle" class="meta-text" style="margin-top:0.25rem;">Click on any diagram component to inspect its verified source line numbers, callers, and code excerpt.</p>
+                    <h3 id="inspector-title" class="flow-inspector-title" style="margin-top:0.3rem;">Select any node</h3>
+                    <p id="inspector-subtitle" class="meta-text" style="margin-top:0.2rem;">Click on any diagram component to inspect its verified source lines, callers, and code excerpt.</p>
                   </div>
                   <div id="inspector-body" class="hidden">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span id="inspector-file-loc" class="badge badge-idle" style="font-family:var(--font-mono);">—</span>
-                      <button id="btn-open-in-explorer" type="button" class="btn btn-accent" style="padding:0.25rem 0.5rem; font-size:0.75rem;">Open in Explorer</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                      <span id="inspector-file-loc" class="badge badge-idle font-mono">—</span>
+                      <button id="btn-open-in-explorer" type="button" class="btn btn-secondary btn-sm">Open in Explorer</button>
                     </div>
-                    <pre id="inspector-excerpt" class="flow-inspector-excerpt">Select a node to inspect source excerpt.</pre>
+                    <pre id="inspector-excerpt" class="flow-inspector-excerpt" style="margin-top:0.75rem;">Select a node to inspect its source excerpt.</pre>
                   </div>
-
-                  <!-- Natural Language Diagram Q&A -->
+                  <!-- AI Q&A -->
                   <div class="flow-ai-box">
-                    <h4 class="subheading" style="font-size:0.85rem;">🤖 Ask AI about this Flow</h4>
+                    <h4 class="subheading" style="font-size:0.82rem; margin-bottom:0.5rem;">🤖 Ask AI about this Flow</h4>
                     <div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.5rem;">
                       <button type="button" class="btn btn-secondary btn-chip" onclick="askDiagramAI('Explain the architecture and data flows in this diagram')">Explain Flow</button>
                       <button type="button" class="btn btn-secondary btn-chip" onclick="askDiagramAI('Trace API requests to database')">Trace to DB</button>
-                      <button type="button" class="btn btn-secondary btn-chip" onclick="askDiagramAI('Identify potential failure points')">Find Bottlenecks</button>
+                      <button type="button" class="btn btn-secondary btn-chip" onclick="askDiagramAI('Identify potential failure points and bottlenecks')">Find Bottlenecks</button>
                     </div>
-                    <form id="diagram-ai-form">
-                      <input id="diagram-ai-input" type="text" placeholder="e.g. What happens if this node fails?" style="width:100%; font-size:0.8rem; padding:0.4rem;" required>
+                    <form id="diagram-ai-form" novalidate>
+                      <input id="diagram-ai-input" type="text" placeholder="e.g. What happens if this node fails?" required aria-label="Ask AI about this diagram" style="font-size:0.82rem;">
                     </form>
-                    <div id="diagram-ai-response" class="muted" style="font-size:0.8rem; margin-top:0.5rem; white-space:pre-wrap;"></div>
+                    <div id="diagram-ai-response" class="muted" style="font-size:0.82rem; margin-top:0.5rem; white-space:pre-wrap;" aria-live="polite"></div>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 4: Repository Explorer & Code
-               ========================================== -->
-          <section id="view-code" class="page-view hidden">
+          <!-- ============================================================
+               View 4: Repository Explorer
+               ============================================================ -->
+          <section id="view-code" class="page-view hidden" role="region" aria-labelledby="view-code-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">EXPLORE</span>
+                <h2 id="view-code-title" class="page-title" style="margin-top:0.35rem;">Repository Explorer</h2>
+                <p class="meta-text">Browse, inspect, and AI-analyze every file in the indexed revision.</p>
+              </div>
+            </div>
             <div class="split-view">
               <div class="panel side-list">
-                <h3 class="panel-subtitle">Repository Files</h3>
-                <input id="file-search-input" type="search" placeholder="Search files…" aria-label="Search files">
-                <div id="file-list-container" class="file-tree" role="tree"></div>
+                <h3 class="panel-subtitle">Files</h3>
+                <input id="file-search-input" type="search" placeholder="Search files…" aria-label="Search repository files" style="margin-bottom:0.5rem;">
+                <div id="file-list-container" class="file-tree" role="tree" aria-label="Repository file tree"></div>
               </div>
               <div class="panel main-viewer">
-                <div class="code-viewer-header" style="display:flex; justify-content:space-between; align-items:center;">
-                  <div>
+                <div class="code-viewer-header">
+                  <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                     <span id="selected-file-label" class="file-name-label">No file selected</span>
-                    <span id="redaction-badge" class="badge badge-warning hidden">Redacted Content</span>
+                    <span id="redaction-badge" class="badge badge-warning hidden" title="This file contains redacted sensitive content">Redacted Content</span>
                   </div>
-                  <div style="display:flex; gap:0.4rem;">
-                    <button id="btn-code-explain" type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem;">🤖 Explain Code</button>
-                    <button id="btn-code-tests" type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem;">🧪 Generate Tests</button>
-                    <button id="btn-code-refactor" type="button" class="btn btn-secondary" style="font-size:0.75rem; padding:0.25rem 0.5rem;">✨ Refactor</button>
+                  <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <button id="btn-code-explain" type="button" class="btn btn-secondary btn-sm">🤖 Explain</button>
+                    <button id="btn-code-tests" type="button" class="btn btn-secondary btn-sm">🧪 Gen Tests</button>
+                    <button id="btn-code-refactor" type="button" class="btn btn-secondary btn-sm">✨ Refactor</button>
                   </div>
                 </div>
-                <pre id="code-preview" tabindex="0">Select a file from the list to view inert source code.</pre>
-                <div id="code-ai-feedback" class="feedback-msg" style="white-space:pre-wrap;"></div>
+                <pre id="code-preview" tabindex="0" aria-label="File contents">Select a file from the list to view its inert source code.</pre>
+                <div id="code-ai-feedback" class="feedback-msg" style="white-space:pre-wrap;" aria-live="polite"></div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 5: Dedicated Repository Analysis
-               ========================================== -->
-          <section id="view-analysis" class="page-view hidden">
+          <!-- ============================================================
+               View 5: Architecture Report (Intelligence)
+               ============================================================ -->
+          <section id="view-analysis" class="page-view hidden" role="region" aria-labelledby="view-analysis-title">
             <div class="page-header">
               <div>
                 <span class="badge badge-accent">REPOSITORY INTELLIGENCE</span>
-                <h2 class="page-title">Repository Analysis &amp; Report</h2>
-                <p class="meta-text">Configure, trigger, and inspect deterministic multi-layer architecture analysis.</p>
+                <h2 id="view-analysis-title" class="page-title" style="margin-top:0.35rem;">Architecture Report</h2>
+                <p class="meta-text">Deterministic multi-layer architecture analysis with evidence citations and downloadable outputs.</p>
               </div>
-              <button id="btn-start-analysis-op" type="button" class="btn btn-accent">⚡ Start Full Analysis</button>
+              <button id="btn-start-analysis-op" type="button" class="btn btn-primary">⚡ Run Full Analysis</button>
             </div>
 
             <div class="panel">
-              <h3 class="panel-subtitle">Full Architecture Specification Report</h3>
-              <div id="analysis-report-container" class="report-content">
-                <p class="muted">Loading architecture report…</p>
+              <div class="report-actions">
+                <button id="btn-download-report-md" type="button" class="btn btn-secondary btn-sm">⬇ Download .md</button>
+                <button id="btn-download-report-json" type="button" class="btn btn-secondary btn-sm">⬇ Download .json</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print Report</button>
+              </div>
+              <div id="analysis-report-container" class="report-content" aria-live="polite">
+                <div class="empty-state">
+                  <span class="empty-state-icon">🔍</span>
+                  <h3>No report yet</h3>
+                  <p>Run a Full Analysis to generate the architecture report with evidence-grounded findings.</p>
+                </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 6: AI Assistant Workspace
-               ========================================== -->
-          <section id="view-ai" class="page-view hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Repository-Grounded AI Assistant</h3>
-                  <p class="panel-desc">Evidence-first codebase QA. Every claim is strictly grounded in current revision source lines.</p>
-                </div>
-                <div style="display:flex; gap:0.5rem; align-items:center;">
-                  <button id="btn-new-chat" type="button" class="btn btn-secondary" style="font-size:0.8rem;">+ New Chat</button>
-                  <span id="ai-active-provider-label" class="badge badge-accent">Provider: Local Engine</span>
-                </div>
+          <!-- ============================================================
+               View 6: AI Assistant
+               ============================================================ -->
+          <section id="view-ai" class="page-view hidden" role="region" aria-labelledby="view-ai-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">AI ASSISTANT</span>
+                <h2 id="view-ai-title" class="page-title" style="margin-top:0.35rem;">Repository-Grounded AI Assistant</h2>
+                <p class="meta-text">Evidence-first codebase QA. Every answer cites exact source file paths and line numbers.</p>
               </div>
+              <div style="display:flex; gap:0.5rem; align-items:center;">
+                <button id="btn-new-chat" type="button" class="btn btn-secondary btn-sm">+ New Chat</button>
+                <span id="ai-active-provider-label" class="badge badge-accent">Provider: Local Engine</span>
+              </div>
+            </div>
 
-              <div style="display:grid; grid-template-columns: 240px 1fr; gap:1rem; margin-top:1rem;">
-                <div class="panel side-list" style="max-height:450px; overflow-y:auto;">
-                  <h4 class="subheading" style="font-size:0.8rem;">Conversations</h4>
-                  <div id="conversations-list-container"></div>
+            <div class="panel">
+              <div style="display:grid; grid-template-columns: 220px 1fr; gap:1rem;">
+                <div class="side-list panel" style="max-height:460px; overflow-y:auto; padding:0.75rem;">
+                  <h4 class="subheading" style="font-size:0.8rem; margin-bottom:0.5rem;">Conversations</h4>
+                  <div id="conversations-list-container" aria-label="Past conversations" role="list"></div>
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                  <div id="ai-chat-messages" style="background:var(--bg-input); border:1px solid var(--border-subtle); border-radius:8px; padding:1rem; min-height:280px; max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:0.75rem;">
-                    <p class="muted">Enter a question below to analyze the codebase with ground-truth evidence.</p>
+                  <div id="ai-chat-messages" role="log" aria-live="polite" aria-label="Chat messages" style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:1rem; min-height:280px; max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:0.75rem;">
+                    <div class="empty-state" style="padding:1rem 0;">
+                      <span class="empty-state-icon" style="font-size:1.8rem;">🤖</span>
+                      <p>Enter a question below to analyze the codebase with ground-truth evidence.</p>
+                    </div>
                   </div>
 
-                  <form id="ai-ask-form" class="ai-input-box">
-                    <textarea id="ai-question-input" rows="3" maxlength="2000" required placeholder="e.g. How does authentication work, and what routes require authorization?"></textarea>
+                  <form id="ai-ask-form" class="ai-input-box" novalidate>
+                    <textarea id="ai-question-input" rows="3" maxlength="2000" required placeholder="e.g. How does authentication work, and what routes require authorization?" aria-label="Your question"></textarea>
                     <div class="ai-form-actions">
                       <span class="ai-provider-info">Grounded Evidence Engine active</span>
                       <button type="submit" class="btn btn-primary">Send Question</button>
@@ -495,355 +539,433 @@
             </div>
           </section>
 
-          <!-- ==========================================
-               View 7: Implementation Planner
-               ========================================== -->
-          <section id="view-planner" class="page-view hidden">
-            <div class="panel">
-              <h3 class="panel-subtitle">Implementation Planner</h3>
-              <p class="panel-desc">Convert feature requests into ordered tasks, acceptance criteria, and complexity assessments.</p>
-              <form id="planner-form" class="planner-input-form">
-                <textarea id="planner-req-input" rows="3" required placeholder="Describe feature request or bugfix (e.g. Add webhook signature validation for Stripe)"></textarea>
-                <button type="submit" class="btn btn-primary">Generate Task Plan</button>
-              </form>
-              <div id="plans-container" class="plans-list"></div>
-            </div>
-          </section>
-
-          <!-- ==========================================
-               View 8: Patch Manager
-               ========================================== -->
-          <section id="view-patches" class="page-view hidden">
-            <div class="panel">
-              <h3 class="panel-subtitle">Reviewable Patches &amp; Rollbacks</h3>
-              <p class="panel-desc">Unified diffs with conflict detection and instant one-click rollback checkpoints.</p>
-              <div id="patches-container" class="patches-list"></div>
-            </div>
-          </section>
-
-          <!-- ==========================================
-               View 9: Security Center
-               ========================================== -->
-          <section id="view-findings" class="page-view hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Codebase Diagnostics &amp; Security Audits</h3>
-                  <p class="panel-desc">Deterministic scans: credential exposure, unpinned Docker images, maintenance markers, missing manifests.</p>
-                </div>
-                <div class="findings-filter">
-                  <select id="findings-filter-select" aria-label="Filter findings by severity">
-                    <option value="all">All Severities</option>
-                    <option value="critical">Critical</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                    <option value="info">Info</option>
-                  </select>
-                </div>
+          <!-- ============================================================
+               View 7: Impact Analysis
+               ============================================================ -->
+          <section id="view-impact" class="page-view hidden" role="region" aria-labelledby="view-impact-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">CHANGE ANALYSIS</span>
+                <h2 id="view-impact-title" class="page-title" style="margin-top:0.35rem;">Impact Analysis</h2>
+                <p class="meta-text">Evidence-aware dependency analysis and regression test selection. Know exactly what breaks before you ship.</p>
               </div>
-              <div id="findings-list-container" class="findings-list"></div>
             </div>
-          </section>
 
-          <!-- ==========================================
-               View 10: Testing & Debugging
-               ========================================== -->
-          <section id="view-tests" class="page-view hidden">
             <div class="panel">
-              <div class="page-header">
-                <div>
-                  <h3 class="panel-subtitle">Automated Test Execution</h3>
-                  <p class="panel-desc">Execute test commands with duration metrics, failure traces, and CI telemetry.</p>
-                </div>
-                <button id="btn-run-tests" type="button" class="btn btn-primary">Run npm test</button>
-              </div>
-              <pre id="test-output-box" class="code-box" style="min-height:220px; max-height:400px; overflow-y:auto;">Click 'Run npm test' to execute test suite.</pre>
-            </div>
-          </section>
-
-          <!-- ==========================================
-               View 11b: Impact Analysis
-               ========================================== -->
-          <section id="view-impact" class="page-view hidden">
-            <div class="panel">
-              <div class="page-header">
-                <div>
-                  <h3 class="panel-subtitle">&#x26A1; Change-Impact Analysis</h3>
-                  <p class="panel-desc">Evidence-aware dependency analysis and regression test selection. Identify which components and tests are affected by a code change.</p>
-                </div>
-              </div>
-
               <div style="display:grid; grid-template-columns:1fr auto; gap:0.75rem; align-items:end; margin-bottom:1rem;">
                 <div>
-                  <label class="subheading" for="impact-files-input" style="margin-bottom:0.35rem; display:block;">Changed Files <span class="muted">(one path per line, relative to project root)</span></label>
-                  <textarea id="impact-files-input" rows="3" placeholder="src/api/routes.js&#10;src/db/models.js" style="width:100%; font-family:var(--font-mono); font-size:0.8rem;"></textarea>
+                  <label class="form-label" for="impact-files-input">Changed Files <span class="muted">(one path per line, relative to project root)</span></label>
+                  <textarea id="impact-files-input" rows="3" placeholder="src/api/routes.js&#10;src/db/models.js" aria-label="List of changed files, one per line" style="font-family:var(--font-mono); font-size:0.82rem;"></textarea>
                 </div>
                 <div>
-                  <label class="subheading" for="impact-strategy-select" style="margin-bottom:0.35rem; display:block;">Test Strategy</label>
-                  <select id="impact-strategy-select" class="api-method-select" style="width:160px;">
+                  <label class="form-label" for="impact-strategy-select">Test Strategy</label>
+                  <select id="impact-strategy-select" style="width:160px;" aria-label="Test selection strategy">
                     <option value="evidence-aware">Evidence-Aware</option>
                     <option value="changed-file">Changed-File</option>
                     <option value="all">Run All</option>
                   </select>
                 </div>
               </div>
-
               <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.25rem;">
                 <button id="btn-impact-analyze" type="button" class="btn btn-primary">Analyze Impact</button>
                 <button id="btn-impact-select" type="button" class="btn btn-secondary">Select Tests</button>
                 <button id="btn-impact-run" type="button" class="btn btn-secondary">Run Selected Tests</button>
                 <button id="btn-impact-history" type="button" class="btn btn-secondary">Load History</button>
               </div>
-
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+              <div class="grid-2-col">
                 <div>
                   <h4 class="subheading" style="margin-bottom:0.5rem;">Impact Cone</h4>
-                  <pre id="impact-cone-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;">Run "Analyze Impact" to compute the change-impact cone.</pre>
+                  <pre id="impact-cone-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;" aria-live="polite">Run "Analyze Impact" to compute the change-impact cone.</pre>
                 </div>
                 <div>
                   <h4 class="subheading" style="margin-bottom:0.5rem;">Selected Tests</h4>
-                  <pre id="impact-tests-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;">Run "Select Tests" to see which test files will be executed.</pre>
+                  <pre id="impact-tests-box" class="code-box" style="min-height:180px; max-height:300px; overflow-y:auto;" aria-live="polite">Run "Select Tests" to see which test files will be executed.</pre>
                 </div>
               </div>
-
               <h4 class="subheading" style="margin:1rem 0 0.5rem;">Test Execution Output</h4>
-              <pre id="impact-run-box" class="code-box" style="min-height:120px; max-height:260px; overflow-y:auto;">Click "Run Selected Tests" to execute the regression suite.</pre>
-
+              <pre id="impact-run-box" class="code-box" style="min-height:120px; max-height:260px; overflow-y:auto;" aria-live="polite">Click "Run Selected Tests" to execute the regression suite.</pre>
               <h4 class="subheading" style="margin:1rem 0 0.5rem;">Analysis History</h4>
-              <div id="impact-history-list" style="display:flex; flex-direction:column; gap:0.5rem; max-height:220px; overflow-y:auto;">
-                <p class="muted">Click "Load History" to retrieve past analyses.</p>
+              <div id="impact-history-list" style="display:flex; flex-direction:column; gap:0.5rem; max-height:220px; overflow-y:auto;" aria-live="polite">
+                <p class="muted" style="font-size:0.84rem;">Click "Load History" to retrieve past analyses.</p>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 11: API Studio
-               ========================================== -->
-          <section id="view-api" class="page-view hidden">
+          <!-- ============================================================
+               View 8: Implementation Planner
+               ============================================================ -->
+          <section id="view-planner" class="page-view hidden" role="region" aria-labelledby="view-planner-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">CHANGE</span>
+                <h2 id="view-planner-title" class="page-title" style="margin-top:0.35rem;">Implementation Planner</h2>
+                <p class="meta-text">Convert feature requests into ordered tasks with acceptance criteria and complexity assessments.</p>
+              </div>
+            </div>
             <div class="panel">
-              <h3 class="panel-subtitle">API Studio &amp; Request Runner</h3>
-              <p class="panel-desc">Test, explore, and document HTTP endpoints. SSRF protection prevents unauthorized internal network probing.</p>
-              
-              <div class="api-studio-bar" style="margin-top:1rem;">
-                <select id="api-req-method" class="api-method-select">
+              <form id="planner-form" class="planner-input-form" novalidate>
+                <label class="form-label" for="planner-req-input">Feature or Bug Request</label>
+                <textarea id="planner-req-input" rows="3" required placeholder="Describe feature request or bugfix (e.g. Add webhook signature validation for Stripe)" aria-label="Feature or bug description"></textarea>
+                <div>
+                  <button type="submit" class="btn btn-primary">Generate Task Plan</button>
+                </div>
+              </form>
+              <div id="plans-container" class="plans-list" aria-live="polite"></div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               View 9: Patch Manager
+               ============================================================ -->
+          <section id="view-patches" class="page-view hidden" role="region" aria-labelledby="view-patches-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">CHANGE</span>
+                <h2 id="view-patches-title" class="page-title" style="margin-top:0.35rem;">Patch Manager</h2>
+                <p class="meta-text">Reviewable unified diffs with conflict detection and instant one-click rollback checkpoints.</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div id="patches-container" class="patches-list" aria-live="polite">
+                <div class="empty-state">
+                  <span class="empty-state-icon">🔄</span>
+                  <h3>No patches yet</h3>
+                  <p>Patches are created when you apply code changes via the AI Assistant or Planner.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               View 10: Security Center
+               ============================================================ -->
+          <section id="view-findings" class="page-view hidden" role="region" aria-labelledby="view-findings-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">VERIFY</span>
+                <h2 id="view-findings-title" class="page-title" style="margin-top:0.35rem;">Security Center</h2>
+                <p class="meta-text">Deterministic scans: credential exposure, unpinned Docker images, maintenance markers, and missing manifests.</p>
+              </div>
+              <div class="findings-filter">
+                <label for="findings-filter-select" class="muted" style="font-size:0.82rem;">Filter:</label>
+                <select id="findings-filter-select" aria-label="Filter findings by severity" style="width:auto; font-size:0.82rem; padding:0.3rem 0.6rem;">
+                  <option value="all">All Severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="info">Info</option>
+                </select>
+              </div>
+            </div>
+            <div class="panel">
+              <div id="findings-list-container" class="findings-list" aria-live="polite">
+                <div class="empty-state">
+                  <span class="empty-state-icon">🛡️</span>
+                  <h3>No findings</h3>
+                  <p>Run analysis to surface security findings. A clean result means no issues were detected.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               View 11: Testing & Debugging
+               ============================================================ -->
+          <section id="view-tests" class="page-view hidden" role="region" aria-labelledby="view-tests-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">VERIFY</span>
+                <h2 id="view-tests-title" class="page-title" style="margin-top:0.35rem;">Testing &amp; Debugging</h2>
+                <p class="meta-text">Execute test suites with duration metrics, failure traces, and CI telemetry.</p>
+              </div>
+              <button id="btn-run-tests" type="button" class="btn btn-primary">▶ Run npm test</button>
+            </div>
+            <div class="panel">
+              <pre id="test-output-box" class="code-box" style="min-height:280px; max-height:500px; overflow-y:auto;" aria-live="polite" aria-label="Test execution output">Click 'Run npm test' to execute the test suite.</pre>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               View 12: API Studio
+               ============================================================ -->
+          <section id="view-api" class="page-view hidden" role="region" aria-labelledby="view-api-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">DATA &amp; APIS</span>
+                <h2 id="view-api-title" class="page-title" style="margin-top:0.35rem;">API Studio</h2>
+                <p class="meta-text">Test, explore, and document HTTP endpoints. SSRF protection prevents unauthorized internal network access.</p>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="api-studio-bar">
+                <select id="api-req-method" class="api-method-select" aria-label="HTTP method">
                   <option value="GET">GET</option>
                   <option value="POST">POST</option>
                   <option value="PUT">PUT</option>
                   <option value="PATCH">PATCH</option>
                   <option value="DELETE">DELETE</option>
                 </select>
-                <input id="api-req-url" type="url" placeholder="https://api.example.com/v1/health" style="flex:1;" required>
-                <button id="btn-send-api-req" type="button" class="btn btn-primary">Send Request</button>
-                <button id="btn-save-api-req" type="button" class="btn btn-secondary">Save to Collection</button>
+                <input id="api-req-url" type="url" placeholder="https://api.example.com/v1/health" aria-label="Request URL" required style="flex:1;">
+                <button id="btn-send-api-req" type="button" class="btn btn-primary" style="flex-shrink:0;">Send Request</button>
+                <button id="btn-save-api-req" type="button" class="btn btn-secondary" style="flex-shrink:0;">Save</button>
               </div>
-
               <div class="api-studio-layout">
                 <div class="api-box">
                   <h4 class="subheading">Request Headers &amp; Body</h4>
-                  <textarea id="api-req-headers" rows="3" placeholder='{"Content-Type": "application/json"}'></textarea>
-                  <textarea id="api-req-body" rows="6" placeholder='{"query": "data"}'></textarea>
+                  <label class="form-label" for="api-req-headers">Headers (JSON)</label>
+                  <textarea id="api-req-headers" rows="3" placeholder='{"Content-Type": "application/json"}' aria-label="Request headers as JSON"></textarea>
+                  <label class="form-label" for="api-req-body" style="margin-top:0.5rem;">Body (JSON)</label>
+                  <textarea id="api-req-body" rows="5" placeholder='{"query": "data"}' aria-label="Request body"></textarea>
                 </div>
-
                 <div class="api-box">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h4 class="subheading">Response Inspection</h4>
-                    <span id="api-resp-status" class="badge badge-idle">Ready</span>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                    <h4 class="subheading">Response</h4>
+                    <span id="api-resp-status" class="badge badge-idle" aria-live="polite">Ready</span>
                   </div>
-                  <pre id="api-resp-body" style="background:var(--bg-input); padding:0.75rem; border-radius:6px; min-height:220px; max-height:300px; overflow-y:auto; font-family:var(--font-mono); font-size:0.775rem;">No response received yet.</pre>
+                  <pre id="api-resp-body" class="code-box" style="min-height:220px; max-height:360px; overflow-y:auto;" aria-live="polite" aria-label="API response body">No response received yet.</pre>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 12: Database Studio
-               ========================================== -->
-          <section id="view-db" class="page-view hidden">
+          <!-- ============================================================
+               View 13: Database Studio
+               ============================================================ -->
+          <section id="view-db" class="page-view hidden" role="region" aria-labelledby="view-db-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">DATA &amp; APIS</span>
+                <h2 id="view-db-title" class="page-title" style="margin-top:0.35rem;">Database Studio</h2>
+                <p class="meta-text">Inspect live schema tables and execute read/audit SQL queries with duration telemetry.</p>
+              </div>
+            </div>
             <div class="panel">
-              <h3 class="panel-subtitle">Database Studio &amp; SQL Explorer</h3>
-              <p class="panel-desc">Inspect live schema tables and execute read/audit SQL queries with duration telemetry.</p>
-              
               <div class="db-studio-layout">
-                <div class="panel side-list">
-                  <h4 class="subheading" style="font-size:0.85rem;">Tables (<span id="db-dialect-badge">SQLite</span>)</h4>
-                  <div id="db-tables-list" style="display:flex; flex-direction:column; gap:0.35rem;"></div>
+                <div class="side-list">
+                  <h4 class="subheading" style="font-size:0.84rem; margin-bottom:0.5rem;">Tables (<span id="db-dialect-badge">SQLite</span>)</h4>
+                  <div id="db-tables-list" style="display:flex; flex-direction:column; gap:0.3rem;" role="list" aria-label="Database tables"></div>
                 </div>
-
                 <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                  <textarea id="db-sql-input" rows="4" placeholder="SELECT * FROM projects LIMIT 10;"></textarea>
+                  <label class="form-label" for="db-sql-input">SQL Query</label>
+                  <textarea id="db-sql-input" rows="4" placeholder="SELECT * FROM projects LIMIT 10;" aria-label="SQL query to execute" style="font-family:var(--font-mono); font-size:0.84rem;"></textarea>
                   <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span id="db-query-telemetry" class="muted" style="font-size:0.8rem;">Ready to query.</span>
-                    <button id="btn-run-sql" type="button" class="btn btn-primary">Run SQL Query</button>
+                    <span id="db-query-telemetry" class="muted" style="font-size:0.8rem;" aria-live="polite">Ready to query.</span>
+                    <button id="btn-run-sql" type="button" class="btn btn-primary">▶ Run Query</button>
                   </div>
-                  <div style="overflow-x:auto; background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:6px;">
-                    <table id="db-results-table" class="db-table-results"></table>
+                  <div style="overflow-x:auto; border:1px solid var(--border-subtle); border-radius:var(--radius-md);">
+                    <table id="db-results-table" class="db-table-results" aria-live="polite" aria-label="Query results"></table>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 13: Docker & Containers
-               ========================================== -->
-          <section id="view-docker" class="page-view hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Containerization Assistant</h3>
-                  <p class="panel-desc">Multi-stage builds, non-root security users, health checks, and compose topologies.</p>
-                </div>
-                <span id="docker-stack-badge" class="badge badge-accent">Stack: Inspecting…</span>
+          <!-- ============================================================
+               View 14: Docker & Containers
+               ============================================================ -->
+          <section id="view-docker" class="page-view hidden" role="region" aria-labelledby="view-docker-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">BUILD</span>
+                <h2 id="view-docker-title" class="page-title" style="margin-top:0.35rem;">Docker &amp; Containers</h2>
+                <p class="meta-text">Multi-stage builds, non-root security users, health checks, and compose topologies.</p>
               </div>
+              <span id="docker-stack-badge" class="badge badge-accent">Stack: Detecting…</span>
+            </div>
+            <div class="panel">
               <div class="docker-preview-grid">
                 <div>
-                  <h4 class="subheading">Dockerfile</h4>
-                  <pre id="dockerfile-preview" tabindex="0">No Dockerfile generated yet.</pre>
+                  <h4 class="subheading" style="margin-bottom:0.5rem;">Dockerfile</h4>
+                  <pre id="dockerfile-preview" class="code-box" tabindex="0" aria-label="Generated Dockerfile">No Dockerfile generated yet.</pre>
                 </div>
                 <div>
-                  <h4 class="subheading">docker-compose.yml</h4>
-                  <pre id="compose-preview" tabindex="0">No docker-compose.yml generated yet.</pre>
+                  <h4 class="subheading" style="margin-bottom:0.5rem;">docker-compose.yml</h4>
+                  <pre id="compose-preview" class="code-box" tabindex="0" aria-label="Generated docker-compose.yml">No docker-compose.yml generated yet.</pre>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 14: Deployment Center
-               ========================================== -->
-          <section id="view-deploy" class="page-view hidden">
+          <!-- ============================================================
+               View 15: Deployment Center
+               ============================================================ -->
+          <section id="view-deploy" class="page-view hidden" role="region" aria-labelledby="view-deploy-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">BUILD</span>
+                <h2 id="view-deploy-title" class="page-title" style="margin-top:0.35rem;">Deployment Center</h2>
+                <p class="meta-text">Evidence-based deployment gating with live health check verification against real running endpoints.</p>
+              </div>
+            </div>
             <div class="panel">
-              <h3 class="panel-subtitle">Cloud Deployment Readiness &amp; Live Verification</h3>
-              <p class="panel-desc">Evidence-based deployment gating. Live health checks are verified against real running endpoints.</p>
-              
-              <div id="readiness-checklist" class="readiness-card"></div>
+              <h3 class="panel-subtitle">Pre-flight Readiness Checklist</h3>
+              <div id="readiness-checklist" class="readiness-card" aria-live="polite"></div>
 
               <div class="deployment-action-box">
+                <h3 class="panel-subtitle">Deploy</h3>
                 <div class="deploy-controls">
-                  <label for="deploy-provider-select">Deployment Provider:</label>
-                  <select id="deploy-provider-select">
-                    <option value="mock">Simulated Provider (Verified Health Check)</option>
+                  <label for="deploy-provider-select" class="form-label" style="margin-bottom:0;">Provider:</label>
+                  <select id="deploy-provider-select" aria-label="Deployment target provider" style="width:auto;">
+                    <option value="mock">Simulated Provider (Health Check)</option>
                     <option value="local-docker">Local Docker Container</option>
                     <option value="render">Render Cloud (render.yaml)</option>
                     <option value="fly">Fly.io (fly.toml)</option>
                     <option value="vercel">Vercel (vercel.json)</option>
                   </select>
-                  <button id="btn-trigger-deploy" type="button" class="btn btn-accent">Deploy &amp; Verify Live Application</button>
+                  <button id="btn-trigger-deploy" type="button" class="btn btn-primary">🚀 Deploy &amp; Verify</button>
                 </div>
               </div>
 
-              <h4 class="subheading" style="margin-top:1.5rem;">Deployment History &amp; Logs</h4>
-              <div id="deployments-history" class="deploy-history-list"></div>
+              <h4 class="subheading" style="margin-top:1.5rem;">Deployment History</h4>
+              <div id="deployments-history" class="deploy-history-list" aria-live="polite">
+                <div class="empty-state" style="padding:1.5rem 0;">
+                  <span class="empty-state-icon">🚀</span>
+                  <p>No deployments triggered yet.</p>
+                </div>
+              </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 15: Tasks & Kanban
-               ========================================== -->
-          <section id="view-tasks" class="page-view hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Development Tasks &amp; Kanban</h3>
-                  <p class="panel-desc">Organize feature development, bugfixes, refactors, and AI-generated action items.</p>
-                </div>
-                <div style="display:flex; gap:0.5rem;">
-                  <button id="btn-generate-ai-tasks" type="button" class="btn btn-secondary">🤖 AI Suggest Tasks</button>
-                  <button id="btn-create-task-modal" type="button" class="btn btn-primary">+ New Task</button>
-                </div>
+          <!-- ============================================================
+               View 16: Tasks & Kanban
+               ============================================================ -->
+          <section id="view-tasks" class="page-view hidden" role="region" aria-labelledby="view-tasks-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">WORKSPACE</span>
+                <h2 id="view-tasks-title" class="page-title" style="margin-top:0.35rem;">Tasks</h2>
+                <p class="meta-text">Organize feature development, bugfixes, refactors, and AI-generated action items.</p>
               </div>
-
-              <div class="kanban-board">
-                <div class="kanban-col" id="col-todo">
-                  <div class="kanban-col-header"><span>📋 To Do</span> <span id="count-todo" class="badge">0</span></div>
+              <div style="display:flex; gap:0.5rem;">
+                <button id="btn-generate-ai-tasks" type="button" class="btn btn-secondary">🤖 AI Suggest Tasks</button>
+                <button id="btn-create-task-modal" type="button" class="btn btn-primary">+ New Task</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="kanban-board" role="region" aria-label="Kanban task board">
+                <div class="kanban-col" id="col-todo" role="list" aria-labelledby="col-todo-label">
+                  <div class="kanban-col-header">
+                    <span id="col-todo-label">📋 To Do</span>
+                    <span id="count-todo" class="badge badge-idle">0</span>
+                  </div>
                   <div id="tasks-list-todo" class="task-items-container"></div>
                 </div>
-                <div class="kanban-col" id="col-in-progress">
-                  <div class="kanban-col-header"><span>⚙️ In Progress</span> <span id="count-in-progress" class="badge">0</span></div>
+                <div class="kanban-col" id="col-in-progress" role="list" aria-labelledby="col-inprog-label">
+                  <div class="kanban-col-header">
+                    <span id="col-inprog-label">⚙️ In Progress</span>
+                    <span id="count-in-progress" class="badge badge-warning">0</span>
+                  </div>
                   <div id="tasks-list-in-progress" class="task-items-container"></div>
                 </div>
-                <div class="kanban-col" id="col-in-review">
-                  <div class="kanban-col-header"><span>🔍 In Review</span> <span id="count-in-review" class="badge">0</span></div>
+                <div class="kanban-col" id="col-in-review" role="list" aria-labelledby="col-review-label">
+                  <div class="kanban-col-header">
+                    <span id="col-review-label">🔍 In Review</span>
+                    <span id="count-in-review" class="badge badge-info">0</span>
+                  </div>
                   <div id="tasks-list-in-review" class="task-items-container"></div>
                 </div>
-                <div class="kanban-col" id="col-done">
-                  <div class="kanban-col-header"><span>✅ Done</span> <span id="count-done" class="badge">0</span></div>
+                <div class="kanban-col" id="col-done" role="list" aria-labelledby="col-done-label">
+                  <div class="kanban-col-header">
+                    <span id="col-done-label">✅ Done</span>
+                    <span id="count-done" class="badge badge-success">0</span>
+                  </div>
                   <div id="tasks-list-done" class="task-items-container"></div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 16: Knowledge Base
-               ========================================== -->
-          <section id="view-notes" class="page-view hidden">
-            <div class="panel">
-              <div class="panel-header-split">
-                <div>
-                  <h3 class="panel-subtitle">Project Notes &amp; Knowledge Base</h3>
-                  <p class="panel-desc">Document architectural decisions, meeting takeaways, technical research, and setup guides.</p>
-                </div>
-                <button id="btn-create-note" type="button" class="btn btn-primary">+ New Note</button>
+          <!-- ============================================================
+               View 17: Knowledge Base / Notes
+               ============================================================ -->
+          <section id="view-notes" class="page-view hidden" role="region" aria-labelledby="view-notes-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">WORKSPACE</span>
+                <h2 id="view-notes-title" class="page-title" style="margin-top:0.35rem;">Knowledge Base</h2>
+                <p class="meta-text">Document architectural decisions, meeting takeaways, technical research, and setup guides.</p>
               </div>
-
+              <button id="btn-create-note" type="button" class="btn btn-primary">+ New Note</button>
+            </div>
+            <div class="panel">
               <div class="notes-grid">
                 <div class="notes-sidebar">
-                  <input id="notes-search-input" type="search" placeholder="Search notes…">
-                  <div id="notes-list-container" style="display:flex; flex-direction:column; gap:0.4rem; max-height:460px; overflow-y:auto;"></div>
+                  <input id="notes-search-input" type="search" placeholder="Search notes…" aria-label="Search knowledge base notes">
+                  <div id="notes-list-container" style="display:flex; flex-direction:column; gap:0.4rem; max-height:460px; overflow-y:auto;" role="list" aria-label="Notes list"></div>
                 </div>
                 <div class="note-editor-panel">
-                  <input id="note-title-input" type="text" placeholder="Note Title (e.g. Architecture Decision Record 001)" style="font-size:1.1rem; font-weight:700;">
-                  <div style="display:flex; gap:0.5rem;">
-                    <select id="note-category-select" style="width:160px;">
+                  <input id="note-title-input" type="text" placeholder="Note Title (e.g. Architecture Decision Record 001)" aria-label="Note title" style="font-size:1.05rem; font-weight:700;">
+                  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <select id="note-category-select" aria-label="Note category" style="width:160px;">
                       <option value="general">General</option>
                       <option value="architecture">Architecture</option>
                       <option value="meeting">Meeting</option>
                       <option value="plan">Plan</option>
                       <option value="research">Research</option>
                     </select>
-                    <input id="note-tags-input" type="text" placeholder="Tags (comma separated)">
+                    <input id="note-tags-input" type="text" placeholder="Tags (comma-separated)" aria-label="Tags" style="flex:1;">
                   </div>
-                  <textarea id="note-content-input" rows="12" placeholder="Write documentation or notes in Markdown…"></textarea>
+                  <textarea id="note-content-input" rows="12" placeholder="Write documentation or notes in Markdown…" aria-label="Note content"></textarea>
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <button id="btn-save-note" type="button" class="btn btn-primary">Save Note</button>
-                    <button id="btn-delete-note" type="button" class="btn btn-secondary text-danger">Delete Note</button>
+                    <button id="btn-delete-note" type="button" class="btn btn-danger btn-sm" aria-label="Delete this note">Delete Note</button>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ==========================================
-               View 17: Audit Trail
-               ========================================== -->
-          <section id="view-audit" class="page-view hidden">
+          <!-- ============================================================
+               View 18: Audit History
+               ============================================================ -->
+          <section id="view-audit" class="page-view hidden" role="region" aria-labelledby="view-audit-title">
+            <div class="page-header">
+              <div>
+                <span class="badge badge-accent">WORKSPACE</span>
+                <h2 id="view-audit-title" class="page-title" style="margin-top:0.35rem;">Audit History</h2>
+                <p class="meta-text">Immutable log of all project creation, revision imports, patch modifications, and deployments.</p>
+              </div>
+            </div>
             <div class="panel">
-              <h3 class="panel-subtitle">Immutable Security Audit Trail</h3>
-              <p class="panel-desc">All project creation, revision imports, patch modifications, suppressions, and deployments are tracked.</p>
-              <div id="audit-events-container" class="audit-list"></div>
+              <div id="audit-events-container" class="audit-list" aria-live="polite" aria-label="Audit events">
+                <div class="empty-state">
+                  <span class="empty-state-icon">📜</span>
+                  <h3>No audit events</h3>
+                  <p>Actions you take are recorded here for security and traceability.</p>
+                </div>
+              </div>
             </div>
           </section>
-        </div>
-      </main>
-    </div>
 
-    <!-- Create Project Modal -->
-    <div id="modal-create-project" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Create Project">
+        </div><!-- /#active-project-views -->
+      </main>
+    </div><!-- /.app-body -->
+
+    <!-- ==================================================================
+         Create Project Modal
+         ================================================================== -->
+    <div id="modal-create-project" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-create-title">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Create New Project</h3>
-          <button type="button" class="icon-btn" onclick="closeModal('modal-create-project')">✕</button>
+          <h3 id="modal-create-title">Create New Project</h3>
+          <button type="button" class="icon-btn" onclick="closeModal('modal-create-project')" aria-label="Close dialog">✕</button>
         </div>
-        <form id="project-create-modal-form">
-          <label for="modal-project-name" class="form-label">Project Name</label>
-          <input id="modal-project-name" type="text" required maxlength="100" placeholder="e.g. E-Commerce Backend">
-          <label for="modal-project-github" class="form-label" style="margin-top:0.75rem;">GitHub Repository URL (Optional)</label>
-          <input id="modal-project-github" type="text" placeholder="https://github.com/owner/repo (auto-imports code)">
-          <label for="modal-project-desc" class="form-label" style="margin-top:0.75rem;">Description (optional)</label>
-          <textarea id="modal-project-desc" rows="2" placeholder="Short description of this application…"></textarea>
-          <div class="modal-actions" style="margin-top:1rem;">
+        <form id="project-create-modal-form" novalidate>
+          <div class="form-group">
+            <label for="modal-project-name" class="form-label">Project Name <span style="color:var(--color-danger);">*</span></label>
+            <input id="modal-project-name" type="text" required maxlength="100" placeholder="e.g. E-Commerce Backend" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="modal-project-github" class="form-label">GitHub Repository URL <span class="muted">(optional — auto-imports)</span></label>
+            <input id="modal-project-github" type="text" placeholder="https://github.com/owner/repo" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="modal-project-desc" class="form-label">Description <span class="muted">(optional)</span></label>
+            <textarea id="modal-project-desc" rows="2" placeholder="Short description of this application…"></textarea>
+          </div>
+          <div id="modal-create-feedback" class="feedback-msg"></div>
+          <div class="modal-actions">
             <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-project')">Cancel</button>
             <button type="submit" class="btn btn-primary">Create &amp; Ingest</button>
           </div>
@@ -851,45 +973,58 @@
       </div>
     </div>
 
-    <!-- Launch Operation Modal -->
-    <div id="modal-launch-operation" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Launch Operation">
+    <!-- ==================================================================
+         Launch Operation Modal
+         ================================================================== -->
+    <div id="modal-launch-operation" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-launch-title">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Launch Engineering Operation</h3>
-          <button type="button" class="icon-btn" onclick="closeModal('modal-launch-operation')">✕</button>
+          <h3 id="modal-launch-title">Launch Engineering Operation</h3>
+          <button type="button" class="icon-btn" onclick="closeModal('modal-launch-operation')" aria-label="Close dialog">✕</button>
         </div>
-        <form id="operation-launch-form">
-          <label for="op-select-type" class="form-label">Operation Type</label>
-          <select id="op-select-type" required>
-            <option value="repository-analysis">Repository Analysis (AST &amp; Dependency Graph)</option>
-            <option value="security-scan">Security &amp; Vulnerability Scan</option>
-            <option value="generate-flow">Generate CodePilot Flow Topology</option>
-          </select>
-          <label for="op-custom-name" class="form-label" style="margin-top:0.75rem;">Operation Label</label>
-          <input id="op-custom-name" type="text" required placeholder="e.g. Main Ingress Analysis">
-          <div class="modal-actions" style="margin-top:1rem;">
+        <form id="operation-launch-form" novalidate>
+          <div class="form-group">
+            <label for="op-select-type" class="form-label">Operation Type</label>
+            <select id="op-select-type" required aria-label="Select operation type">
+              <option value="repository-analysis">Repository Analysis (AST &amp; Dependency Graph)</option>
+              <option value="security-scan">Security &amp; Vulnerability Scan</option>
+              <option value="generate-flow">Generate CodePilot Flow Topology</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="op-custom-name" class="form-label">Operation Label <span style="color:var(--color-danger);">*</span></label>
+            <input id="op-custom-name" type="text" required placeholder="e.g. Main Ingress Analysis" autocomplete="off">
+          </div>
+          <div class="modal-actions">
             <button type="button" class="btn btn-secondary" onclick="closeModal('modal-launch-operation')">Cancel</button>
-            <button type="submit" class="btn btn-accent">Start Operation</button>
+            <button type="submit" class="btn btn-primary">Start Operation</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Global Command Palette Modal (Ctrl+K) -->
-    <div id="command-palette" class="palette-overlay hidden" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <!-- ==================================================================
+         Global Command Palette (Ctrl+K)
+         ================================================================== -->
+    <div id="command-palette" class="palette-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="palette-heading">
       <div class="palette-card">
         <div class="palette-input-wrap">
-          <input id="palette-search-input" class="palette-input" type="search" placeholder="Type a command or search files, symbols, tasks, diagrams… (Esc to exit)">
+          <span class="palette-search-icon" aria-hidden="true">🔍</span>
+          <input id="palette-search-input" class="palette-input" type="search" placeholder="Search files, symbols, tasks, diagrams… (Esc to close)" aria-label="Global command palette search" autocomplete="off" spellcheck="false">
         </div>
-        <div id="palette-results-container" class="palette-results"></div>
+        <div id="palette-results-container" class="palette-results" role="listbox" aria-label="Command palette results" aria-live="polite">
+          <p class="muted" style="padding:0.75rem; font-size:0.84rem;">Type to search files, symbols, tasks, and diagrams across the current project…</p>
+        </div>
       </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="app-footer">
+    <!-- ==================================================================
+         Footer
+         ================================================================== -->
+    <footer class="app-footer" role="contentinfo">
       <div class="footer-inner">
         <span>CodePilot AI v0.2.0 · Professional AI Development &amp; Architecture Platform</span>
-        <span>Dedicated Workspaces · Isolated Ingestion · Grounded Evidence Engine</span>
+        <span class="dimmed">Dedicated Workspaces · Isolated Ingestion · Grounded Evidence Engine</span>
       </div>
     </footer>
 

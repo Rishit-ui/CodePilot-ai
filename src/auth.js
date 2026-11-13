@@ -1,5 +1,31 @@
 const crypto = require('node:crypto');
 
+// Email format validation (RFC 5321 simplified)
+// Local part: letters, digits, dots, underscores, percents, pluses, hyphens
+// Domain: valid hostname labels (letters/digits/hyphens) separated by dots, ending with >=2 letters
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@(?:[a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}$/;
+
+// Password must be >=10 chars, with uppercase, lowercase, digit, special char
+const PASSWORD_MIN_LENGTH = 10;
+const PASSWORD_SPECIAL_CHARS = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/;
+
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const trimmed = email.trim();
+  if (trimmed.length > 254) return false; // RFC 5321 max
+  return EMAIL_REGEX.test(trimmed);
+}
+
+function validatePasswordStrength(password) {
+  if (!password || typeof password !== 'string') return { valid: false, reason: 'Password is required.' };
+  if (password.length < PASSWORD_MIN_LENGTH) return { valid: false, reason: `Password must be at least ${PASSWORD_MIN_LENGTH} characters.` };
+  if (!/[A-Z]/.test(password)) return { valid: false, reason: 'Password must contain at least one uppercase letter.' };
+  if (!/[a-z]/.test(password)) return { valid: false, reason: 'Password must contain at least one lowercase letter.' };
+  if (!/[0-9]/.test(password)) return { valid: false, reason: 'Password must contain at least one digit.' };
+  if (!PASSWORD_SPECIAL_CHARS.test(password)) return { valid: false, reason: 'Password must contain at least one special character.' };
+  return { valid: true };
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derivedKey = crypto.scryptSync(password, salt, 64);
@@ -42,5 +68,7 @@ module.exports = {
   verifyPassword,
   generateToken,
   sanitizeUser,
-  hasPermission
+  hasPermission,
+  validateEmail,
+  validatePasswordStrength
 };

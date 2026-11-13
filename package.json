@@ -13,6 +13,10 @@
     "check": "node --check api/index.js && node --check \"api/[...path].js\" && node --check src/server.cjs && node --check src/server.js && node --check src/db.js && node --check src/flow.js && node --check src/analyzer.js && node --check src/archive.js && node --check src/importer.js && node --check src/architecture.js && node --check src/ai.js && node --check src/planner.js && node --check src/docker.js && node --check src/deployer.js && node --check src/test_runner.js"
   },
   "dependencies": {
+    "acorn": "^8.19.0",
+    "adm-zip": "^0.6.1",
+    "better-sqlite3": "^13.1.1",
+    "node-fetch": "^3.3.2",
     "pg": "^8.23.1"
   }
 }

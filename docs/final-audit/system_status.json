@@ -1,0 +1,58 @@
+{
+  "system": "CodePilot AI",
+  "version": "0.2.0",
+  "generated_at": "2026-11-13T15:01:30.000Z",
+  "readiness_gate": "PASS",
+  "test_summary": {
+    "total_tests": 49,
+    "passed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 832.573
+  },
+  "modules_checked": 15,
+  "syntax_check_status": "CLEAN",
+  "dependencies_verified": [
+    "better-sqlite3",
+    "acorn",
+    "adm-zip",
+    "node-fetch",
+    "pg"
+  ],
+  "engine_requirement": "node >=20.0.0",
+  "security_controls": {
+    "zip_slip_protection": "VERIFIED",
+    "ssrf_gateway_blocking": "VERIFIED",
+    "scrypt_password_hashing": "VERIFIED",
+    "email_rfc_validation": "VERIFIED",
+    "password_strength_enforcement": "VERIFIED",
+    "subprocess_secret_scrubbing": "VERIFIED",
+    "command_whitelist_enforcement": "VERIFIED"
+  },
+  "features": {
+    "project_management": "IMPLEMENTED_AND_TESTED",
+    "zip_upload_ingestion": "IMPLEMENTED_AND_TESTED",
+    "github_url_ingestion": "IMPLEMENTED_AND_TESTED",
+    "remote_archive_ingestion": "IMPLEMENTED_AND_TESTED",
+    "javascript_ast_analysis": "IMPLEMENTED_AND_TESTED",
+    "python_symbol_analysis": "IMPLEMENTED_AND_TESTED",
+    "dockerfile_linting": "IMPLEMENTED_AND_TESTED",
+    "codepilot_flow_diagrams": "IMPLEMENTED_AND_TESTED",
+    "architecture_reports": "IMPLEMENTED_AND_TESTED",
+    "impact_engine_analysis": "IMPLEMENTED_AND_TESTED",
+    "regression_test_selection": "IMPLEMENTED_AND_TESTED",
+    "security_center_findings": "IMPLEMENTED_AND_TESTED",
+    "implementation_planner": "IMPLEMENTED_AND_TESTED",
+    "patch_manager_rollback": "IMPLEMENTED_AND_TESTED",
+    "api_studio": "IMPLEMENTED_AND_TESTED",
+    "database_studio": "IMPLEMENTED_AND_TESTED",
+    "kanban_tasks": "IMPLEMENTED_AND_TESTED",
+    "knowledge_base_notes": "IMPLEMENTED_AND_TESTED",
+    "operations_telemetry": "IMPLEMENTED_AND_TESTED",
+    "vercel_serverless_deployment": "IMPLEMENTED_AND_TESTED",
+    "docker_container_deployment": "IMPLEMENTED_AND_TESTED",
+    "ai_assistant_fallback": "IMPLEMENTED_AND_TESTED",
+    "ai_assistant_external_llm": "BLOCKED_EXTERNAL_CONFIGURATION",
+    "cloud_deployment_execution": "BLOCKED_EXTERNAL_CONFIGURATION"
+  }
+}
