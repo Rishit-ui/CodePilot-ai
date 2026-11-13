@@ -367,10 +367,84 @@ const SCHEMA_DDL = `
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    revision_id TEXT REFERENCES revisions(id) ON DELETE SET NULL,
+    idempotency_key TEXT,
+    execution_profile TEXT,
+    provider TEXT,
+    provider_execution_id TEXT,
+    progress_stage TEXT,
+    result_json TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    expires_at TEXT,
+    queue_message_id TEXT,
+    poisoned INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE INDEX IF NOT EXISTS idx_execution_jobs_claim ON execution_jobs(status, available_at, created_at);
+
+  CREATE TABLE IF NOT EXISTS job_outbox (
+    id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL REFERENCES execution_jobs(id) ON DELETE CASCADE,
+    topic TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    available_at TEXT NOT NULL,
+    published_at TEXT,
+    queue_message_id TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_job_outbox_publish ON job_outbox(status, available_at, created_at);
+
+  CREATE TABLE IF NOT EXISTS job_artifacts (
+    id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL REFERENCES execution_jobs(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    object_key TEXT NOT NULL UNIQUE,
+    content_type TEXT,
+    size_bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_job_artifacts_owner ON job_artifacts(owner_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS upload_intents (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    object_key TEXT NOT NULL UNIQUE,
+    expected_size INTEGER NOT NULL,
+    expected_sha256 TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    actual_size INTEGER,
+    actual_sha256 TEXT,
+    provider_etag TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_upload_intents_owner ON upload_intents(owner_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS resource_usage_events (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    job_id TEXT REFERENCES execution_jobs(id) ON DELETE SET NULL,
+    metric TEXT NOT NULL,
+    value INTEGER NOT NULL,
+    unit TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_resource_usage_owner ON resource_usage_events(owner_id, metric, created_at DESC);
 
 `;
 
@@ -432,10 +506,24 @@ class Store {
       if (!projectColumns.some((column) => column.name === 'owner_id')) {
         this.sqlite.exec('ALTER TABLE projects ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE SET NULL;');
       }
+      const executionColumns = new Set(this.sqlite.prepare('PRAGMA table_info(execution_jobs)').all().map((column) => column.name));
+      const additions = [
+        ['revision_id', 'TEXT REFERENCES revisions(id) ON DELETE SET NULL'], ['idempotency_key', 'TEXT'],
+        ['execution_profile', 'TEXT'], ['provider', 'TEXT'], ['provider_execution_id', 'TEXT'],
+        ['progress_stage', 'TEXT'], ['result_json', 'TEXT'], ['started_at', 'TEXT'],
+        ['completed_at', 'TEXT'], ['expires_at', 'TEXT'], ['queue_message_id', 'TEXT'],
+        ['poisoned', 'INTEGER NOT NULL DEFAULT 0']
+      ];
+      for (const [column, definition] of additions) {
+        if (!executionColumns.has(column)) this.sqlite.exec(`ALTER TABLE execution_jobs ADD COLUMN ${column} ${definition};`);
+      }
+      this.sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_jobs_idempotency ON execution_jobs(actor_id, idempotency_key) WHERE idempotency_key IS NOT NULL;');
+      this.sqlite.exec('CREATE INDEX IF NOT EXISTS idx_execution_jobs_owner ON execution_jobs(actor_id, created_at DESC);');
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(1, 'baseline-schema', now());
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(2, 'project-ownership-and-rate-limits', now());
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(3, 'operational-monitoring', now());
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(4, 'durable-execution-queue', now());
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(5, 'phase3-outbox-artifacts-and-workflows', now());
     }
   }
 
@@ -446,10 +534,25 @@ class Store {
         await client.query('BEGIN');
         await client.query(SCHEMA_DDL);
         await client.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS revision_id TEXT REFERENCES revisions(id) ON DELETE SET NULL');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS idempotency_key TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS execution_profile TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS provider TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS provider_execution_id TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS progress_stage TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS result_json TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS started_at TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS completed_at TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS expires_at TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS queue_message_id TEXT');
+        await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS poisoned INTEGER NOT NULL DEFAULT 0');
+        await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_jobs_idempotency ON execution_jobs(actor_id, idempotency_key) WHERE idempotency_key IS NOT NULL');
+        await client.query('CREATE INDEX IF NOT EXISTS idx_execution_jobs_owner ON execution_jobs(actor_id, created_at DESC)');
         await client.query("INSERT INTO schema_migrations VALUES (1, 'baseline-schema', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query("INSERT INTO schema_migrations VALUES (2, 'project-ownership-and-rate-limits', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query("INSERT INTO schema_migrations VALUES (3, 'operational-monitoring', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query("INSERT INTO schema_migrations VALUES (4, 'durable-execution-queue', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        await client.query("INSERT INTO schema_migrations VALUES (5, 'phase3-outbox-artifacts-and-workflows', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query('COMMIT');
       } catch (err) {
         await client.query('ROLLBACK').catch(() => {});
@@ -551,7 +654,10 @@ class Store {
     const jobId = id('execjob');
     const timestamp = now();
     await this.run(
-      'INSERT INTO execution_jobs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      `INSERT INTO execution_jobs
+       (id, project_id, actor_id, job_type, payload, status, attempts, max_attempts, available_at,
+        lease_owner, lease_expires_at, cancel_requested, error_message, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       jobId, projectId, actorId || null, jobType, JSON.stringify(payload), 'PENDING', 0,
       maxAttempts, timestamp, null, null, 0, null, timestamp, timestamp
     );
@@ -575,6 +681,216 @@ class Store {
     await this.run('UPDATE execution_jobs SET attempts=?, status=?, available_at=?, error_message=?, lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE id=?', attempts, retry ? 'PENDING' : 'FAILED', availableAt, String(message).slice(0, 1000), now(), jobId);
     await this.recordOperationalEvent('worker.execution_failed', 'error', job.project_id, null, `job=${jobId}; attempt=${attempts}`);
     return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async createWorkflowJob({ projectId, actorId, revisionId = null, jobType, executionProfile = null, payload = {}, idempotencyKey, maxAttempts = 3, lifetimeMs = 15 * 60 * 1000, topic = 'codepilot-jobs' }) {
+    if (!projectId || !actorId || !jobType || !idempotencyKey) throw new Error('projectId, actorId, jobType and idempotencyKey are required.');
+    if (!/^[A-Za-z0-9._:-]{8,200}$/.test(idempotencyKey)) throw new Error('Invalid idempotency key.');
+    const existing = await this.get('SELECT * FROM execution_jobs WHERE actor_id=? AND idempotency_key=?', actorId, idempotencyKey);
+    if (existing) return { job: existing, created: false, outbox: await this.get('SELECT * FROM job_outbox WHERE job_id=?', existing.id) };
+    const timestamp = now();
+    const jobId = id('execjob');
+    const outboxId = id('outbox');
+    const expiresAt = new Date(Date.now() + lifetimeMs).toISOString();
+    const safePayload = JSON.stringify(payload);
+    if (Buffer.byteLength(safePayload) > 16 * 1024) throw new Error('Job payload exceeds 16 KiB. Store source and artifacts outside the queue.');
+    const queuePayload = JSON.stringify({ version: 1, jobId, outboxId });
+    const insertJob = `INSERT INTO execution_jobs
+      (id, project_id, actor_id, job_type, payload, status, attempts, max_attempts, available_at,
+       lease_owner, lease_expires_at, cancel_requested, error_message, created_at, updated_at,
+       revision_id, idempotency_key, execution_profile, progress_stage, expires_at, poisoned)
+      VALUES (?, ?, ?, ?, ?, 'QUEUED', 0, ?, ?, NULL, NULL, 0, NULL, ?, ?, ?, ?, ?, 'queued', ?, 0)`;
+    const insertOutbox = `INSERT INTO job_outbox
+      (id, job_id, topic, payload, idempotency_key, status, attempts, available_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'PENDING', 0, ?, ?, ?)`;
+    if (this.dialect === 'postgres') {
+      await this.ensureReady();
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(toPostgresSql(insertJob), [jobId, projectId, actorId, jobType, safePayload, maxAttempts, timestamp, timestamp, timestamp, revisionId, idempotencyKey, executionProfile, expiresAt]);
+        await client.query(toPostgresSql(insertOutbox), [outboxId, jobId, topic, queuePayload, `publish:${jobId}`, timestamp, timestamp, timestamp]);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (error.code === '23505') {
+          const raced = await this.get('SELECT * FROM execution_jobs WHERE actor_id=? AND idempotency_key=?', actorId, idempotencyKey);
+          if (raced) return { job: raced, created: false, outbox: await this.get('SELECT * FROM job_outbox WHERE job_id=?', raced.id) };
+        }
+        throw error;
+      } finally {
+        client.release();
+      }
+    } else {
+      this.sqlite.exec('BEGIN IMMEDIATE');
+      try {
+        this.sqlite.prepare(insertJob).run(jobId, projectId, actorId, jobType, safePayload, maxAttempts, timestamp, timestamp, timestamp, revisionId, idempotencyKey, executionProfile, expiresAt);
+        this.sqlite.prepare(insertOutbox).run(outboxId, jobId, topic, queuePayload, `publish:${jobId}`, timestamp, timestamp, timestamp);
+        this.sqlite.exec('COMMIT');
+      } catch (error) {
+        this.sqlite.exec('ROLLBACK');
+        const raced = await this.get('SELECT * FROM execution_jobs WHERE actor_id=? AND idempotency_key=?', actorId, idempotencyKey);
+        if (raced) return { job: raced, created: false, outbox: await this.get('SELECT * FROM job_outbox WHERE job_id=?', raced.id) };
+        throw error;
+      }
+    }
+    await this.audit('job.created', projectId, `Created durable ${jobType} job ${jobId}`, actorId);
+    return { job: await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId), created: true, outbox: await this.get('SELECT * FROM job_outbox WHERE id=?', outboxId) };
+  }
+
+  async getExecutionJobForUser(jobId, user) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+    if (!job || !user || (!user.is_global_admin && job.actor_id !== user.id)) return null;
+    return job;
+  }
+
+  async listExecutionJobsForUser(user, limit = 50) {
+    if (!user) return [];
+    return user.is_global_admin
+      ? this.all('SELECT * FROM execution_jobs ORDER BY created_at DESC LIMIT ?', limit)
+      : this.all('SELECT * FROM execution_jobs WHERE actor_id=? ORDER BY created_at DESC LIMIT ?', user.id, limit);
+  }
+
+  async claimExecutionJob(jobId, workerId, leaseMs = 60_000) {
+    const timestamp = now();
+    const leaseExpires = new Date(Date.now() + leaseMs).toISOString();
+    const claimed = await this.get(`UPDATE execution_jobs SET status='RUNNING', attempts=attempts+1, lease_owner=?, lease_expires_at=?,
+      started_at=COALESCE(started_at, ?), progress_stage='running', updated_at=?
+      WHERE id=? AND status IN ('QUEUED','DISPATCHED') AND cancel_requested=0 AND attempts < max_attempts AND available_at <= ? AND expires_at > ?
+      RETURNING *`, workerId, leaseExpires, timestamp, timestamp, jobId, timestamp, timestamp);
+    if (claimed) await this.recordResourceUsage(claimed.actor_id, claimed.project_id, claimed.id, 'queue_delay_ms', Math.max(0, Date.now() - Date.parse(claimed.created_at)), 'ms');
+    return claimed;
+  }
+
+  async markJobDispatched(jobId, queueMessageId) {
+    await this.run("UPDATE execution_jobs SET status=CASE WHEN status='QUEUED' THEN 'DISPATCHED' ELSE status END, queue_message_id=?, progress_stage='dispatched', updated_at=? WHERE id=?", queueMessageId || null, now(), jobId);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async completeExecutionJob(jobId, workerId, result, provider, providerExecutionId) {
+    const timestamp = now();
+    const updated = await this.get(`UPDATE execution_jobs SET status='SUCCEEDED', result_json=?, provider=?, provider_execution_id=?,
+      progress_stage='completed', completed_at=?, lease_owner=NULL, lease_expires_at=NULL, updated_at=?
+      WHERE id=? AND status='RUNNING' AND lease_owner=? AND cancel_requested=0 RETURNING *`, JSON.stringify(result), provider, providerExecutionId, timestamp, timestamp, jobId, workerId);
+    if (updated) await this.audit('job.succeeded', updated.project_id, `Job ${jobId} completed with provider ${provider}`, updated.actor_id);
+    return updated;
+  }
+
+  async failWorkflowJob(jobId, workerId, errorMessage, { timedOut = false, retryDelayMs = 1000 } = {}) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+    if (!job || job.lease_owner !== workerId || job.status !== 'RUNNING') return null;
+    const exhausted = Number(job.attempts) >= Number(job.max_attempts);
+    const cancelled = Number(job.cancel_requested) === 1;
+    const terminal = timedOut ? 'TIMED_OUT' : cancelled ? 'CANCELLED' : exhausted ? 'FAILED' : 'QUEUED';
+    const availableAt = new Date(Date.now() + Math.min(60_000, retryDelayMs * (2 ** Math.max(0, Number(job.attempts) - 1)))).toISOString();
+    const completedAt = ['TIMED_OUT', 'CANCELLED', 'FAILED'].includes(terminal) ? now() : null;
+    await this.run(`UPDATE execution_jobs SET status=?, available_at=?, error_message=?, poisoned=?, completed_at=?,
+      lease_owner=NULL, lease_expires_at=NULL, progress_stage=?, updated_at=? WHERE id=?`, terminal, availableAt, String(errorMessage).slice(0, 1000), exhausted ? 1 : 0, completedAt, terminal.toLowerCase(), now(), jobId);
+    if (exhausted) await this.recordOperationalEvent('queue.poisoned_job', 'error', job.project_id, null, `job=${jobId}; attempts=${job.attempts}`);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async cancelWorkflowJob(jobId, actorId) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=? AND actor_id=?', jobId, actorId);
+    if (!job || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'EXPIRED'].includes(job.status)) return null;
+    const status = ['QUEUED', 'DISPATCHED'].includes(job.status) ? 'CANCELLED' : 'CANCEL_REQUESTED';
+    await this.run('UPDATE execution_jobs SET cancel_requested=1, status=?, completed_at=?, progress_stage=?, updated_at=? WHERE id=?', status, status === 'CANCELLED' ? now() : null, status.toLowerCase(), now(), jobId);
+    await this.audit('job.cancellation_requested', job.project_id, `Cancellation requested for job ${jobId}`, actorId);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async retryWorkflowJob(jobId, actorId) {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=? AND actor_id=?', jobId, actorId);
+    if (!job || !['FAILED', 'TIMED_OUT', 'BLOCKED'].includes(job.status) || Number(job.attempts) >= Number(job.max_attempts)) return null;
+    await this.run("UPDATE execution_jobs SET status='QUEUED', cancel_requested=0, poisoned=0, error_message=NULL, available_at=?, completed_at=NULL, progress_stage='queued', updated_at=? WHERE id=?", now(), now(), jobId);
+    await this.run("UPDATE job_outbox SET status='PENDING', available_at=?, last_error=NULL, updated_at=? WHERE job_id=?", now(), now(), jobId);
+    return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
+  async recoverExpiredExecutionJobs(timestamp = now()) {
+    await this.run("UPDATE execution_jobs SET status='EXPIRED', completed_at=?, progress_stage='expired', lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED','TIMED_OUT','EXPIRED') AND expires_at <= ?", timestamp, timestamp, timestamp);
+    await this.run("UPDATE execution_jobs SET status='QUEUED', progress_stage='recovered', lease_owner=NULL, lease_expires_at=NULL, available_at=?, updated_at=? WHERE status='RUNNING' AND lease_expires_at < ? AND cancel_requested=0 AND attempts < max_attempts", timestamp, timestamp, timestamp);
+  }
+
+  async pendingOutbox(limit = 10) {
+    return this.all("SELECT * FROM job_outbox WHERE status='PENDING' AND available_at <= ? ORDER BY created_at LIMIT ?", now(), limit);
+  }
+
+  async markOutboxPublished(outboxId, queueMessageId) {
+    const timestamp = now();
+    await this.run("UPDATE job_outbox SET status='PUBLISHED', attempts=attempts+1, published_at=?, queue_message_id=?, updated_at=? WHERE id=? AND status='PENDING'", timestamp, queueMessageId || null, timestamp, outboxId);
+    const outbox = await this.get('SELECT * FROM job_outbox WHERE id=?', outboxId);
+    if (outbox) await this.markJobDispatched(outbox.job_id, queueMessageId);
+    return outbox;
+  }
+
+  async markOutboxFailure(outboxId, errorMessage) {
+    const row = await this.get('SELECT * FROM job_outbox WHERE id=?', outboxId);
+    if (!row) return null;
+    const attempts = Number(row.attempts) + 1;
+    const terminal = attempts >= 5;
+    const availableAt = new Date(Date.now() + Math.min(60_000, 1000 * (2 ** (attempts - 1)))).toISOString();
+    await this.run('UPDATE job_outbox SET status=?, attempts=?, available_at=?, last_error=?, updated_at=? WHERE id=?', terminal ? 'FAILED' : 'PENDING', attempts, availableAt, String(errorMessage).slice(0, 1000), now(), outboxId);
+    await this.recordOperationalEvent('queue.publication_failed', terminal ? 'error' : 'warning', null, null, `outbox=${outboxId}; attempt=${attempts}`);
+    if (terminal) await this.run("UPDATE execution_jobs SET status='BLOCKED', poisoned=1, error_message='Queue publication exhausted retries', completed_at=?, updated_at=? WHERE id=?", now(), now(), row.job_id);
+    return this.get('SELECT * FROM job_outbox WHERE id=?', outboxId);
+  }
+
+  async createUploadIntent({ projectId, ownerId, objectKey, expectedSize, expectedSha256, contentType, ttlMs = 15 * 60 * 1000 }) {
+    const intentId = id('upload');
+    const timestamp = now();
+    await this.run('INSERT INTO upload_intents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', intentId, projectId, ownerId, objectKey, expectedSize, expectedSha256, contentType, 'AUTHORIZED', null, null, null, timestamp, new Date(Date.now() + ttlMs).toISOString(), null);
+    await this.audit('upload.authorized', projectId, `Authorized private upload ${intentId}`, ownerId);
+    return this.get('SELECT * FROM upload_intents WHERE id=?', intentId);
+  }
+
+  async getUploadIntentForUser(intentId, user) {
+    if (!user) return null;
+    return user.is_global_admin
+      ? this.get('SELECT * FROM upload_intents WHERE id=?', intentId)
+      : this.get('SELECT * FROM upload_intents WHERE id=? AND owner_id=?', intentId, user.id);
+  }
+
+  async completeUploadIntent(intentId, ownerId, { size, sha256, etag }) {
+    const intent = await this.get("SELECT * FROM upload_intents WHERE id=? AND owner_id=? AND status='AUTHORIZED'", intentId, ownerId);
+    if (!intent || Date.parse(intent.expires_at) <= Date.now()) return null;
+    const valid = Number(size) === Number(intent.expected_size) && sha256 === intent.expected_sha256;
+    await this.run('UPDATE upload_intents SET status=?, actual_size=?, actual_sha256=?, provider_etag=?, completed_at=? WHERE id=?', valid ? 'VERIFIED' : 'REJECTED', size, sha256, etag || null, now(), intentId);
+    await this.audit(valid ? 'upload.verified' : 'upload.rejected', intent.project_id, `Upload ${intentId} ${valid ? 'verified' : 'failed size/hash verification'}`, ownerId);
+    return this.get('SELECT * FROM upload_intents WHERE id=?', intentId);
+  }
+
+  async createJobArtifact({ jobId, projectId, ownerId, kind, objectKey, contentType, sizeBytes, sha256, expiresAt = null }) {
+    const artifactId = id('artifact');
+    await this.run('INSERT INTO job_artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', artifactId, jobId, projectId, ownerId, kind, objectKey, contentType || null, sizeBytes, sha256, now(), expiresAt);
+    return this.get('SELECT * FROM job_artifacts WHERE id=?', artifactId);
+  }
+
+  async getArtifactForUser(artifactId, user) {
+    if (!user) return null;
+    return user.is_global_admin
+      ? this.get('SELECT * FROM job_artifacts WHERE id=?', artifactId)
+      : this.get('SELECT * FROM job_artifacts WHERE id=? AND owner_id=?', artifactId, user.id);
+  }
+
+  async recordResourceUsage(ownerId, projectId, jobId, metric, value, unit) {
+    await this.run('INSERT INTO resource_usage_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id('usage'), ownerId || null, projectId || null, jobId || null, metric, value, unit, now());
+  }
+
+  async operationalMetrics() {
+    const jobs = await this.all('SELECT status, COUNT(*) AS count FROM execution_jobs GROUP BY status ORDER BY status');
+    const outbox = await this.all('SELECT status, COUNT(*) AS count FROM job_outbox GROUP BY status ORDER BY status');
+    const oldest = await this.get("SELECT MIN(created_at) AS oldest FROM job_outbox WHERE status='PENDING'");
+    const failures = await this.get("SELECT COUNT(*) AS count FROM operational_events WHERE severity='error' AND created_at>=?", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    return {
+      jobs,
+      outbox,
+      oldestPendingOutboxAgeMs: oldest?.oldest ? Math.max(0, Date.now() - Date.parse(oldest.oldest)) : 0,
+      operationalErrorsLastHour: Number(failures?.count || 0),
+      database: this.dialect === 'postgres'
+        ? { dialect: 'postgres', total: this.pool.totalCount, idle: this.pool.idleCount, waiting: this.pool.waitingCount }
+        : { dialect: 'sqlite' }
+    };
   }
 
   // User & Auth operations

@@ -12,7 +12,28 @@ test('loadConfig loads safe defaults in development', () => {
   assert.equal(typeof config.limits.maxUploadBytes, 'number');
   assert.ok(config.limits.maxUploadBytes >= 1024);
   assert.equal(config.ai.provider, 'local');
+  assert.equal(config.execution.releaseVerified, false);
+  assert.equal(config.queue.provider, 'disabled');
+  assert.equal(config.storage.provider, 'disabled');
   assert.ok(Array.isArray(config.deployment.allowedProviders));
+});
+
+test('production execution cannot be enabled by environment configuration alone', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-release-gate-'));
+  const keys = ['NODE_ENV', 'DATABASE_URL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED', 'CODEPILOT_EXECUTION_MODE', 'CODEPILOT_WORKER_PROVIDER'];
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.DATABASE_URL = 'postgres://user:pass@db.example.com/codepilot';
+    process.env.CODEPILOT_SESSION_SECRET = 'a'.repeat(64);
+    process.env.CODEPILOT_AUTH_ENABLED = 'true';
+    process.env.CODEPILOT_EXECUTION_MODE = 'external-worker';
+    process.env.CODEPILOT_WORKER_PROVIDER = 'vercel-sandbox';
+    assert.throws(() => loadConfig(tempRoot), /release-blocked/);
+  } finally {
+    for (const key of keys) original[key] === undefined ? delete process.env[key] : process.env[key] = original[key];
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('loadConfig prevents insecure session secret in production', () => {

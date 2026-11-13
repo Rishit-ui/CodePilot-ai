@@ -17,6 +17,9 @@ services:
       CODEPILOT_DB_SSL_MODE: ${CODEPILOT_DB_SSL_MODE:-verify-full}
       CODEPILOT_RATE_LIMIT_ENABLED: "true"
       CODEPILOT_EXECUTION_MODE: disabled
+      CODEPILOT_WORKER_PROVIDER: disabled
+      CODEPILOT_QUEUE_PROVIDER: disabled
+      CODEPILOT_STORAGE_PROVIDER: disabled
     volumes:
       - codepilot-data:/app/.data
 

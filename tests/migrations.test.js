@@ -34,12 +34,12 @@ test('legacy SQLite projects are upgraded without losing rows and migrations are
   await store.ensureReady();
   assert.equal((await store.project('project_legacy')).name, 'Preserved');
   assert.ok((await store.all('PRAGMA table_info(projects)')).some((column) => column.name === 'owner_id'));
-  assert.deepEqual((await store.all('SELECT version FROM schema_migrations ORDER BY version')).map((row) => row.version), [1, 2, 3, 4]);
+  assert.deepEqual((await store.all('SELECT version FROM schema_migrations ORDER BY version')).map((row) => row.version), [1, 2, 3, 4, 5]);
   await store.close();
 
   const reopened = new Store({ dataDir, sessionSecret: 'migration-test-secret-value-over-32-characters' });
   await reopened.ensureReady();
   assert.equal((await reopened.project('project_legacy')).description, 'legacy row');
-  assert.equal((await reopened.all('SELECT version FROM schema_migrations')).length, 4);
+  assert.equal((await reopened.all('SELECT version FROM schema_migrations')).length, 5);
   await reopened.close();
 });

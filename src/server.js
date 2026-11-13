@@ -28,6 +28,8 @@ const { detectStack, generateDockerfile, generateDockerignore, generateDockerCom
 const { evaluateReadiness, executeDeployment } = require('./deployer');
 const { runIsolatedTest } = require('./test_runner');
 const { enforceRateLimit, requestIp } = require('./rate_limit');
+const { VercelQueuePublisher, OutboxDispatcher } = require('./queue/vercel_queue');
+const { VercelBlobStorage } = require('./storage/vercel_blob');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -179,9 +181,15 @@ function createApp(options = {}) {
     ...suppliedConfig,
     authEnabled: suppliedConfig.authEnabled !== false,
     rateLimit: suppliedConfig.rateLimit || { enabled: false, failClosed: false, policies: {} },
-    execution: suppliedConfig.execution || { mode: 'local-development', workerUrl: '', workerToken: '' }
+    execution: suppliedConfig.execution || { mode: 'local-development', workerUrl: '', workerToken: '', releaseVerified: false, provider: 'disabled' },
+    queue: suppliedConfig.queue || { provider: 'disabled', topic: 'codepilot-jobs', region: 'iad1' },
+    storage: suppliedConfig.storage || { provider: 'disabled', maxObjectBytes: 250 * 1024 * 1024, uploadTtlMs: 600000, artifactRetentionDays: 7 },
+    quotas: suppliedConfig.quotas || { jobsPerHour: 10, concurrentJobs: 2, storageBytesPerUser: 500 * 1024 * 1024 }
   });
   const store = options.store || new Store({ dataDir: config.dataDir, databaseUrl: config.databaseUrl, database: config.database, sessionSecret: config.sessionSecret });
+  const queuePublisher = options.queuePublisher || (config.queue.provider === 'vercel-queues' ? new VercelQueuePublisher(config.queue) : null);
+  const outboxDispatcher = queuePublisher ? new OutboxDispatcher({ store, publisher: queuePublisher }) : null;
+  const objectStorage = options.objectStorage || (config.storage.provider === 'vercel-blob' ? new VercelBlobStorage(config.storage) : null);
 
   const handleRequest = async (request, response) => {
     const requestId = crypto.randomUUID();
@@ -247,6 +255,9 @@ function createApp(options = {}) {
             database: store.dialect,
             auth: config.authEnabled ? 'enabled' : 'local-open',
             execution: config.execution.mode,
+            executionReleaseVerified: Boolean(config.execution.releaseVerified),
+            queue: config.queue.provider,
+            privateStorage: config.storage.provider,
             aiProvider: config.ai.provider,
             supportedDeployments: config.deployment.allowedProviders,
             maxUploadMb: Math.round(config.limits.maxUploadBytes / (1024 * 1024))
@@ -262,7 +273,11 @@ function createApp(options = {}) {
             dependencies: {
               database,
               rateLimitStore: config.rateLimit.enabled ? { status: 'available', backend: store.dialect } : { status: 'disabled' },
-              worker: config.execution.mode === 'external-worker' ? { status: config.execution.workerUrl ? 'configured-not-probed' : 'unavailable' } : { status: config.execution.mode }
+              queue: { status: outboxDispatcher ? 'configured-not-probed' : 'disabled', provider: config.queue.provider },
+              privateStorage: { status: objectStorage ? 'configured-not-probed' : 'disabled', provider: config.storage.provider },
+              worker: config.execution.releaseVerified && config.execution.mode === 'external-worker'
+                ? { status: 'configured-not-probed', provider: config.execution.provider }
+                : { status: 'disabled', releaseVerified: false }
             },
             requestId
           });
@@ -273,7 +288,9 @@ function createApp(options = {}) {
             dependencies: {
               database: { status: 'unavailable' },
               rateLimitStore: config.rateLimit.enabled ? { status: 'unavailable', backend: store.dialect } : { status: 'disabled' },
-              worker: { status: config.execution.mode }
+              queue: { status: outboxDispatcher ? 'configured-not-probed' : 'disabled' },
+              privateStorage: { status: objectStorage ? 'configured-not-probed' : 'disabled' },
+              worker: { status: 'disabled', releaseVerified: false }
             },
             requestId
           });
@@ -350,6 +367,128 @@ function createApp(options = {}) {
       if (request.method === 'GET' && pathname === '/api/auth/me') {
         if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'Not authenticated.');
         return json(response, 200, { user: currentUser, requestId });
+      }
+
+      // --- Durable jobs and private artifacts ---
+      if (request.method === 'GET' && pathname === '/api/jobs') {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required for job access.');
+        const jobs = await store.listExecutionJobsForUser(currentUser, 50);
+        return json(response, 200, { jobs, requestId });
+      }
+
+      const jobMatch = pathname.match(/^\/api\/jobs\/([^/]+)$/);
+      if (request.method === 'GET' && jobMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required for job access.');
+        const job = await store.getExecutionJobForUser(jobMatch[1], currentUser);
+        if (!job) return error(response, 404, 'JOB_NOT_FOUND', 'Job was not found.');
+        return json(response, 200, { job, requestId });
+      }
+
+      const cancelJobMatch = pathname.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
+      if (request.method === 'POST' && cancelJobMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required for job access.');
+        const job = await store.cancelWorkflowJob(cancelJobMatch[1], currentUser.id);
+        if (!job) return error(response, 409, 'JOB_NOT_CANCELLABLE', 'Job was not found or is already terminal.');
+        await store.audit('job.cancellation_requested', job.project_id, `Cancellation requested for job ${job.id}`, currentUser.id);
+        return json(response, 202, { job, requestId });
+      }
+
+      const retryJobMatch = pathname.match(/^\/api\/jobs\/([^/]+)\/retry$/);
+      if (request.method === 'POST' && retryJobMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required for job access.');
+        const job = await store.retryWorkflowJob(retryJobMatch[1], currentUser.id);
+        if (!job) return error(response, 409, 'JOB_NOT_RETRYABLE', 'Job is not eligible for retry.');
+        if (outboxDispatcher) await outboxDispatcher.dispatch(1);
+        return json(response, 202, { job, requestId });
+      }
+
+      const artifactDownloadMatch = pathname.match(/^\/api\/artifacts\/([^/]+)\/download$/);
+      if (request.method === 'POST' && artifactDownloadMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required for artifact access.');
+        if (!objectStorage) return error(response, 503, 'STORAGE_UNAVAILABLE', 'Private object storage is not configured.');
+        const artifact = await store.getArtifactForUser(artifactDownloadMatch[1], currentUser);
+        if (!artifact) return error(response, 404, 'ARTIFACT_NOT_FOUND', 'Artifact was not found.');
+        const download = await objectStorage.authorizeDownload(artifact.object_key);
+        await store.audit('artifact.download_authorized', artifact.project_id, `Authorized short-lived download for artifact ${artifact.id}`, currentUser.id);
+        return json(response, 200, { artifact: { id: artifact.id, kind: artifact.kind, sizeBytes: artifact.size_bytes, sha256: artifact.sha256 }, ...download, requestId });
+      }
+
+      if (request.method === 'GET' && pathname === '/api/operations/metrics') {
+        if (!currentUser?.is_global_admin) return error(response, 403, 'FORBIDDEN', 'Global administrator access is required.');
+        return json(response, 200, { metrics: await store.operationalMetrics(), requestId });
+      }
+
+      const createJobMatch = pathname.match(/^\/api\/projects\/([^/]+)\/jobs$/);
+      if (request.method === 'POST' && createJobMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required to create jobs.');
+        if (!outboxDispatcher) return error(response, 503, 'QUEUE_UNAVAILABLE', 'Durable queue publication is not configured.');
+        const body = parseJson(await readBody(request, 16 * 1024));
+        const allowedTypes = new Set(['repository-ingestion', 'source-analysis', 'architecture-graph', 'impact-analysis', 'test-execution', 'report-generation', 'docker-analysis']);
+        if (!allowedTypes.has(body.jobType)) return error(response, 422, 'INVALID_JOB_TYPE', 'Unsupported job type.');
+        if (body.jobType === 'test-execution' && (!config.execution.releaseVerified || config.execution.mode === 'disabled')) {
+          return error(response, 503, 'EXECUTION_RELEASE_BLOCKED', 'Repository execution remains disabled until real-provider adversarial verification passes.');
+        }
+        const idempotencyKey = String(request.headers['idempotency-key'] || body.idempotencyKey || '');
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const recent = await store.get('SELECT COUNT(*) AS count FROM execution_jobs WHERE actor_id=? AND created_at>=?', currentUser.id, oneHourAgo);
+        const active = await store.get("SELECT COUNT(*) AS count FROM execution_jobs WHERE actor_id=? AND status IN ('QUEUED','DISPATCHED','RUNNING','CANCEL_REQUESTED')", currentUser.id);
+        if (Number(recent.count) >= config.quotas.jobsPerHour || Number(active.count) >= config.quotas.concurrentJobs) {
+          return error(response, 429, 'JOB_QUOTA_EXCEEDED', 'Per-user job quota is exhausted.');
+        }
+        const revision = await store.latestRevision(createJobMatch[1]);
+        const executionProfile = body.jobType === 'test-execution' ? body.executionProfile : null;
+        if (body.jobType === 'test-execution' && !['node-test', 'node-test-no-scripts', 'python-pytest'].includes(executionProfile)) {
+          return error(response, 422, 'INVALID_EXECUTION_PROFILE', 'Select a predefined execution profile.');
+        }
+        const created = await store.createWorkflowJob({
+          projectId: createJobMatch[1], actorId: currentUser.id, revisionId: revision?.id || null,
+          jobType: body.jobType, executionProfile, payload: { revisionId: revision?.id || null },
+          idempotencyKey, topic: config.queue.topic
+        });
+        const publication = await outboxDispatcher.dispatch(1);
+        const job = await store.getExecutionJobForUser(created.job.id, currentUser);
+        return json(response, created.created ? 202 : 200, { job, publication, duplicate: !created.created, requestId });
+      }
+
+      const uploadAuthorizeMatch = pathname.match(/^\/api\/projects\/([^/]+)\/uploads\/authorize$/);
+      if (request.method === 'POST' && uploadAuthorizeMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required to upload.');
+        if (!objectStorage) return error(response, 503, 'STORAGE_UNAVAILABLE', 'Private object storage is not configured.');
+        const body = parseJson(await readBody(request, 8 * 1024));
+        const sizeBytes = Number(body.sizeBytes);
+        const sha256 = String(body.sha256 || '').toLowerCase();
+        const contentType = String(body.contentType || '');
+        if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > config.storage.maxObjectBytes || !/^[a-f0-9]{64}$/.test(sha256) || !['application/zip', 'application/x-zip-compressed'].includes(contentType)) {
+          return error(response, 422, 'INVALID_UPLOAD', 'ZIP size, content type, and SHA-256 are required.');
+        }
+        const usage = await store.get("SELECT COALESCE(SUM(expected_size), 0) AS bytes FROM upload_intents WHERE owner_id=? AND status IN ('AUTHORIZED','VERIFIED')", currentUser.id);
+        if (Number(usage.bytes) + sizeBytes > config.quotas.storageBytesPerUser) {
+          return error(response, 429, 'STORAGE_QUOTA_EXCEEDED', 'Per-user private storage quota is exhausted.');
+        }
+        const objectKey = `codepilot/${currentUser.id}/${crypto.randomUUID()}.zip`;
+        const intent = await store.createUploadIntent({ projectId: uploadAuthorizeMatch[1], ownerId: currentUser.id, objectKey, expectedSize: sizeBytes, expectedSha256: sha256, contentType, ttlMs: config.storage.uploadTtlMs });
+        const authorization = await objectStorage.authorizeUpload({ objectKey, contentType, sizeBytes, ttlMs: config.storage.uploadTtlMs });
+        await store.audit('upload.authorized', uploadAuthorizeMatch[1], `Authorized private direct upload ${intent.id}`, currentUser.id);
+        return json(response, 201, { intent: { id: intent.id, objectKey, expiresAt: intent.expires_at }, authorization, requestId });
+      }
+
+      const uploadCompleteMatch = pathname.match(/^\/api\/projects\/([^/]+)\/uploads\/([^/]+)\/complete$/);
+      if (request.method === 'POST' && uploadCompleteMatch) {
+        if (!currentUser) return error(response, 401, 'UNAUTHORIZED', 'A valid user is required to complete an upload.');
+        if (!objectStorage) return error(response, 503, 'STORAGE_UNAVAILABLE', 'Private object storage is not configured.');
+        const intent = await store.getUploadIntentForUser(uploadCompleteMatch[2], currentUser);
+        if (!intent || intent.project_id !== uploadCompleteMatch[1]) return error(response, 404, 'UPLOAD_NOT_FOUND', 'Upload intent was not found.');
+        const actual = await objectStorage.verifyObject(intent.object_key, Number(intent.expected_size));
+        const verified = await store.completeUploadIntent(intent.id, currentUser.id, actual);
+        if (!verified || verified.status !== 'VERIFIED') return error(response, 422, 'UPLOAD_VERIFICATION_FAILED', 'Stored object size or SHA-256 did not match the authorization.');
+        await store.recordResourceUsage(currentUser.id, intent.project_id, null, 'upload_bytes', Number(verified.actual_size), 'bytes');
+        let job = null;
+        if (outboxDispatcher) {
+          const created = await store.createWorkflowJob({ projectId: intent.project_id, actorId: currentUser.id, jobType: 'repository-ingestion', payload: { uploadIntentId: intent.id, objectKey: intent.object_key, sha256: verified.actual_sha256 }, idempotencyKey: `ingest:${intent.id}`, topic: config.queue.topic });
+          await outboxDispatcher.dispatch(1);
+          job = created.job;
+        }
+        return json(response, 202, { upload: verified, job, requestId });
       }
 
       // --- Workspaces Endpoints ---

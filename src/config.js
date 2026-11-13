@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 
 const MIN_SESSION_SECRET_LENGTH = 32;
+// This source-controlled gate must stay false until the real-provider adversarial
+// report passes. Environment variables alone cannot enable public execution.
+const EXECUTION_RELEASE_VERIFIED = false;
 const INSECURE_SECRET_PATTERNS = [
   /dev[-_ ]?insecure/i,
   /change[-_ ]?this/i,
@@ -83,6 +86,15 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   if (isProd && executionMode === 'local-development') {
     throw new Error('FATAL: local-development execution is forbidden in production.');
   }
+  if (isProd && executionMode !== 'disabled' && !EXECUTION_RELEASE_VERIFIED) {
+    throw new Error('FATAL: production execution is release-blocked until real-provider adversarial verification passes.');
+  }
+  const queueProvider = env.CODEPILOT_QUEUE_PROVIDER || 'disabled';
+  const storageProvider = env.CODEPILOT_STORAGE_PROVIDER || 'disabled';
+  const workerProvider = env.CODEPILOT_WORKER_PROVIDER || 'disabled';
+  if (!['disabled', 'vercel-queues'].includes(queueProvider)) throw new Error('FATAL: unsupported queue provider.');
+  if (!['disabled', 'vercel-blob'].includes(storageProvider)) throw new Error('FATAL: unsupported storage provider.');
+  if (!['disabled', 'vercel-sandbox'].includes(workerProvider)) throw new Error('FATAL: unsupported worker provider.');
 
   // Direct HTTP upload limit (4.5MB edge proxy limit on Vercel)
   const defaultMaxUpload = isVercel ? 4.5 * 1024 * 1024 : 10 * 1024 * 1024;
@@ -125,7 +137,29 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
     execution: Object.freeze({
       mode: executionMode,
       workerUrl: env.CODEPILOT_WORKER_URL || '',
-      workerToken: env.CODEPILOT_WORKER_TOKEN || ''
+      workerToken: env.CODEPILOT_WORKER_TOKEN || '',
+      releaseVerified: EXECUTION_RELEASE_VERIFIED,
+      provider: workerProvider,
+      timeoutMs: integer(env.CODEPILOT_WORKER_TIMEOUT_MS, 120000, 1000, 15 * 60 * 1000),
+      commandTimeoutMs: integer(env.CODEPILOT_WORKER_COMMAND_TIMEOUT_MS, 60000, 1000, 10 * 60 * 1000),
+      outputBytes: integer(env.CODEPILOT_WORKER_OUTPUT_BYTES, 1024 * 1024, 1024, 4 * 1024 * 1024),
+      vcpus: integer(env.CODEPILOT_WORKER_VCPUS, 1, 1, 2)
+    }),
+    queue: Object.freeze({
+      provider: queueProvider,
+      topic: /^[A-Za-z0-9_-]+$/.test(env.CODEPILOT_QUEUE_TOPIC || '') ? env.CODEPILOT_QUEUE_TOPIC : 'codepilot-jobs',
+      region: env.CODEPILOT_QUEUE_REGION || 'iad1'
+    }),
+    storage: Object.freeze({
+      provider: storageProvider,
+      maxObjectBytes: integer(env.CODEPILOT_STORAGE_MAX_OBJECT_BYTES, 250 * 1024 * 1024, 1024, 1024 * 1024 * 1024),
+      uploadTtlMs: integer(env.CODEPILOT_UPLOAD_TTL_MS, 10 * 60 * 1000, 60_000, 15 * 60 * 1000),
+      artifactRetentionDays: integer(env.CODEPILOT_ARTIFACT_RETENTION_DAYS, 7, 1, 30)
+    }),
+    quotas: Object.freeze({
+      jobsPerHour: integer(env.CODEPILOT_JOBS_PER_USER_HOUR, 10, 1, 100),
+      concurrentJobs: integer(env.CODEPILOT_CONCURRENT_JOBS_PER_USER, 2, 1, 10),
+      storageBytesPerUser: integer(env.CODEPILOT_STORAGE_BYTES_PER_USER, 500 * 1024 * 1024, 1024 * 1024, 10 * 1024 * 1024 * 1024)
     }),
     ai: Object.freeze({
       provider: env.CODEPILOT_AI_PROVIDER || 'local', // 'local' | 'openai' | 'anthropic' | 'gemini'
@@ -153,4 +187,4 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   });
 }
 
-module.exports = { loadConfig, MIN_SESSION_SECRET_LENGTH };
+module.exports = { loadConfig, MIN_SESSION_SECRET_LENGTH, EXECUTION_RELEASE_VERIFIED };

@@ -1,6 +1,6 @@
 # CodePilot AI Security Audit
 
-Updated: 2026-11-13 (Phase 2)
+Updated: 2026-11-13 (Phase 3)
 
 ## Current controls
 
@@ -26,3 +26,9 @@ Production execution is fail-safe: `local-development` mode is rejected and Comp
 - Development can deliberately disable auth or run local subprocesses. Keep it bound to a trusted workstation.
 
 No secret was added to tracked files or reports.
+
+## Phase 3 update
+
+The provider-independent worker, Vercel Sandbox adapter, default-deny network request, non-persistent cleanup, predefined profiles, transactional queue outbox, private upload intent and owned artifact controls are implemented and unit-tested. Official SDK dependencies are pinned and `npm audit` reports zero known vulnerabilities.
+
+These controls do not change the execution verdict. The source-controlled release gate is `false`; production refuses non-disabled execution. All 20 real-provider adversarial scenarios remain `NOT TESTED`, so execution is `BLOCKED`. Platform authentication, static analysis and reporting remain independently usable with execution disabled.

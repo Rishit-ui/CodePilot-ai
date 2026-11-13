@@ -33,6 +33,9 @@ test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency,
   }, 'PostgreSQL integration revision');
   const plan = await store.createPlan(project.id, saved.revision.id, 'Lifecycle plan', 'Verify PostgreSQL', 'small', []);
   await store.createPatch(project.id, saved.revision.id, plan.id, 'Patch history', 'src/app.js', 'diff', 'before', 'after');
+  const phase3Job = await store.createWorkflowJob({ projectId: project.id, actorId: alice.id, revisionId: saved.revision.id, jobType: 'source-analysis', idempotencyKey: `pg-phase3:${suffix}`, topic: 'phase3-jobs' });
+  assert.equal(phase3Job.job.status, 'QUEUED');
+  assert.equal((await store.createWorkflowJob({ projectId: project.id, actorId: alice.id, revisionId: saved.revision.id, jobType: 'source-analysis', idempotencyKey: `pg-phase3:${suffix}`, topic: 'phase3-jobs' })).created, false);
   await store.run('INSERT INTO test_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', `test_${suffix}`, project.id, saved.revision.id, 'external', 'node --test', 'PASS', 0, 'verified', 1, new Date().toISOString());
   const second = new Store(options);
   await second.ensureReady();
@@ -42,7 +45,7 @@ test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency,
   assert.ok((await store.listProjects(null, alice.id)).some((candidate) => candidate.id === project.id));
   assert.equal((await store.listProjects(null, bob.id)).length, 0);
   const migrations = await store.all('SELECT version FROM schema_migrations ORDER BY version');
-  assert.deepEqual(migrations.map((row) => Number(row.version)), [1, 2, 3, 4]);
+  assert.deepEqual(migrations.map((row) => Number(row.version)), [1, 2, 3, 4, 5]);
   await assert.rejects(() => store.run('INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?)', `bad_${suffix}`, 'missing-project', 'bad', new Date().toISOString(), 'ready', null));
   const migrationClient = await store.pool.connect();
   try {
@@ -65,6 +68,8 @@ test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency,
   assert.equal(Number(persisted.counts.edges), 1);
   assert.equal((await restarted.listPatches(project.id)).length, 1);
   assert.equal(Number((await restarted.get('SELECT COUNT(*) AS count FROM test_runs WHERE project_id=?', project.id)).count), 1);
+  assert.equal(Number((await restarted.get('SELECT COUNT(*) AS count FROM execution_jobs WHERE project_id=? AND idempotency_key=?', project.id, `pg-phase3:${suffix}`)).count), 1);
+  assert.equal(Number((await restarted.get('SELECT COUNT(*) AS count FROM job_outbox WHERE job_id=?', phase3Job.job.id)).count), 1);
   assert.ok((await restarted.listAuditEventsForUser(alice)).some((event) => event.project_id === project.id));
   await restarted.close();
 });

@@ -1,0 +1,22 @@
+[
+  { "id": "host-files", "threat": "Read host files", "expected": "Only the microVM filesystem is visible; no host mounts exist." },
+  { "id": "production-env", "threat": "Read production environment variables", "expected": "Database, auth, AI, queue and storage credentials are absent." },
+  { "id": "metadata", "threat": "Access cloud metadata", "expected": "Default-deny network policy blocks the request." },
+  { "id": "postgres", "threat": "Connect to PostgreSQL", "expected": "Default-deny network policy blocks private database access." },
+  { "id": "internal-api", "threat": "Access internal APIs", "expected": "No internal route is reachable." },
+  { "id": "dns-exfiltration", "threat": "DNS exfiltration", "expected": "DNS resolution/egress is blocked." },
+  { "id": "outbound-http", "threat": "Unrestricted outbound HTTP", "expected": "Outbound HTTP is blocked." },
+  { "id": "path-traversal", "threat": "Workspace path traversal", "expected": "Upload validation rejects the path and no host path is reachable." },
+  { "id": "symlink-escape", "threat": "Symlink escape", "expected": "Archives reject symlinks; created links remain inside the microVM boundary." },
+  { "id": "process-exhaustion", "threat": "Excessive process creation", "expected": "Provider resource boundary contains the workload and timeout terminates it." },
+  { "id": "memory-exhaustion", "threat": "Memory exhaustion", "expected": "MicroVM memory allocation contains the failure." },
+  { "id": "disk-exhaustion", "threat": "Disk exhaustion", "expected": "Provider disk boundary contains the failure." },
+  { "id": "output-flood", "threat": "Output flooding", "expected": "Collected output is truncated at the configured byte ceiling." },
+  { "id": "infinite-loop", "threat": "Infinite loop", "expected": "Command timeout kills the process and records TIMED_OUT." },
+  { "id": "job-timeout", "threat": "Execution beyond maximum lifetime", "expected": "Sandbox session timeout stops the VM." },
+  { "id": "cross-workspace", "threat": "Access another user's workspace", "expected": "Each job receives a distinct non-persistent microVM." },
+  { "id": "cancel-survival", "threat": "Continue after cancellation", "expected": "Cancellation terminates the sandbox and records CANCELLED." },
+  { "id": "background-process", "threat": "Leave persistent background process", "expected": "Non-persistent sandbox deletion destroys all processes and files." },
+  { "id": "runtime-modification", "threat": "Modify worker runtime files", "expected": "Changes remain inside the disposable microVM and are destroyed." },
+  { "id": "cross-artifact", "threat": "Access another job's artifact", "expected": "Application ownership and private signed URLs reject access." }
+]
