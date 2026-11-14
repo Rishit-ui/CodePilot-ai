@@ -1,0 +1,50 @@
+[33m28d6c9e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/remotes/origin/main@{2026-11-14 23:23:42 +0530}: update by push
+[33m28d6c9e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/heads/main@{2026-11-14 23:23:38 +0530}: commit: updated
+[33m28d6c9e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{2026-11-14 23:23:38 +0530}: commit: updated
+[33mdafc87d[m refs/remotes/origin/main@{2026-11-14 23:02:58 +0530}: update by push
+[33mdafc87d[m refs/heads/main@{2026-11-14 23:02:53 +0530}: commit: updated
+[33mdafc87d[m HEAD@{2026-11-14 23:02:53 +0530}: commit: updated
+[33mbdfea26[m refs/remotes/origin/main@{2026-11-14 22:46:11 +0530}: update by push
+[33mbdfea26[m refs/heads/main@{2026-11-14 22:46:06 +0530}: commit: updated
+[33mbdfea26[m HEAD@{2026-11-14 22:46:06 +0530}: commit: updated
+[33m837c455[m refs/remotes/origin/main@{2026-11-14 00:45:18 +0530}: update by push
+[33m837c455[m refs/heads/main@{2026-11-14 00:45:03 +0530}: commit: updated
+[33m837c455[m HEAD@{2026-11-14 00:45:03 +0530}: commit: updated
+[33m060e7da[m refs/remotes/origin/main@{2026-11-14 00:02:56 +0530}: update by push
+[33m060e7da[m refs/heads/main@{2026-11-14 00:02:51 +0530}: commit: updated
+[33m060e7da[m HEAD@{2026-11-14 00:02:51 +0530}: commit: updated
+[33mf1d49fb[m refs/remotes/origin/main@{2026-11-13 23:33:25 +0530}: update by push
+[33mf1d49fb[m refs/heads/main@{2026-11-13 23:33:16 +0530}: commit: updated
+[33mf1d49fb[m HEAD@{2026-11-13 23:33:16 +0530}: commit: updated
+[33mb8234dd[m refs/remotes/origin/main@{2026-11-13 23:08:51 +0530}: update by push
+[33mb8234dd[m refs/heads/main@{2026-11-13 23:08:43 +0530}: commit: updated
+[33mb8234dd[m HEAD@{2026-11-13 23:08:43 +0530}: commit: updated
+[33mf57e929[m refs/remotes/origin/main@{2026-11-13 15:02:06 +0530}: update by push
+[33mf57e929[m refs/heads/main@{2026-11-13 15:01:57 +0530}: commit: feat: complete production overhaul, warm ivory/amber UI redesign, security validation, and documentation suite
+[33mf57e929[m HEAD@{2026-11-13 15:01:57 +0530}: commit: feat: complete production overhaul, warm ivory/amber UI redesign, security validation, and documentation suite
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/swarm-docs-reporter-60c27974@{2026-11-13 14:48:10 +0530}: branch: Created from main
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-docs-reporter-60c27974/HEAD@{2026-11-13 14:48:10 +0530}: reset: moving to HEAD
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-docs-reporter-60c27974/HEAD@{2026-11-13 14:48:10 +0530}: 
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/swarm-frontend-redesign-0f62f921@{2026-11-13 14:48:09 +0530}: branch: Created from main
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/swarm-security-hardening-781dd49a@{2026-11-13 14:48:09 +0530}: branch: Created from main
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-backend-repair-eca85630/HEAD@{2026-11-13 14:48:09 +0530}: reset: moving to HEAD
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-frontend-redesign-0f62f921/HEAD@{2026-11-13 14:48:09 +0530}: reset: moving to HEAD
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-frontend-redesign-0f62f921/HEAD@{2026-11-13 14:48:09 +0530}: 
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-security-hardening-781dd49a/HEAD@{2026-11-13 14:48:09 +0530}: reset: moving to HEAD
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-security-hardening-781dd49a/HEAD@{2026-11-13 14:48:09 +0530}: 
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/swarm-auditor-5fe16ba3@{2026-11-13 14:48:08 +0530}: branch: Created from main
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/swarm-backend-repair-eca85630@{2026-11-13 14:48:08 +0530}: branch: Created from main
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-auditor-5fe16ba3/HEAD@{2026-11-13 14:48:08 +0530}: reset: moving to HEAD
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-auditor-5fe16ba3/HEAD@{2026-11-13 14:48:08 +0530}: 
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m worktrees/swarm-backend-repair-eca85630/HEAD@{2026-11-13 14:48:08 +0530}: 
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/remotes/origin/main@{2026-10-29 22:54:15 +0530}: update by push
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m refs/heads/main@{2026-10-29 22:53:57 +0530}: commit: feat(impact-engine): evidence-aware dependency analysis, regression test selection, and change-impact engine
+[33m071b222[m[33m ([m[1;32mswarm-security-hardening-781dd49a[m[33m, [m[1;32mswarm-frontend-redesign-0f62f921[m[33m, [m[1;32mswarm-docs-reporter-60c27974[m[33m, [m[1;32mswarm-backend-repair-eca85630[m[33m, [m[1;32mswarm-auditor-5fe16ba3[m[33m)[m HEAD@{2026-10-29 22:53:57 +0530}: commit: feat(impact-engine): evidence-aware dependency analysis, regression test selection, and change-impact engine
+[33meb59281[m refs/remotes/origin/main@{2026-10-29 15:31:51 +0530}: update by push
+[33meb59281[m refs/heads/main@{2026-10-29 15:31:24 +0530}: commit: fix(ingestion): resolve 413 upload limit, serverless auto-healing, and large repo GitHub import
+[33meb59281[m HEAD@{2026-10-29 15:31:24 +0530}: commit: fix(ingestion): resolve 413 upload limit, serverless auto-healing, and large repo GitHub import
+[33m2237621[m refs/remotes/origin/main@{2026-10-29 00:25:50 +0530}: update by push
+[33m2237621[m refs/heads/main@{2026-10-29 00:25:47 +0530}: merge feat/github-repo-ingestion: Fast-forward
+[33m2237621[m HEAD@{2026-10-29 00:25:47 +0530}: merge feat/github-repo-ingestion: Fast-forward
+[33m6b7ae44[m HEAD@{2026-10-29 00:25:47 +0530}: checkout: moving from feat/github-repo-ingestion to main
+[33m2237621[m HEAD@{2026-10-28 23:56:55 +0530}: commit: feat: add direct GitHub repo link ingestion with automatic default branch resolution

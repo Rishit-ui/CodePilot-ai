@@ -11,6 +11,14 @@ function now() {
   return new Date().toISOString();
 }
 
+function sanitizeDiagnostic(value, maxLength = 1000) {
+  return String(value || '')
+    .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]')
+    .replace(/\b(password|secret|token|authorization|api[_-]?key)\b\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/([?&](?:access_token|api_key|key|token)=)[^&\s]+/gi, '$1[REDACTED]')
+    .slice(0, maxLength);
+}
+
 function toPostgresSql(sql) {
   let paramIndex = 1;
   return sql.replace(/\?/g, () => `$${paramIndex++}`);
@@ -646,7 +654,7 @@ class Store {
   }
 
   async recordOperationalEvent(eventType, severity, projectId, requestId, detail) {
-    const safeDetail = String(detail || '').replace(/(password|secret|token|authorization)=?[^;\s]*/gi, '$1=[REDACTED]').slice(0, 1000);
+    const safeDetail = sanitizeDiagnostic(detail);
     await this.run('INSERT INTO operational_events VALUES (?, ?, ?, ?, ?, ?, ?)', id('event'), eventType, severity, projectId || null, requestId || null, safeDetail, now());
   }
 
@@ -678,7 +686,7 @@ class Store {
     const attempts = Number(job.attempts) + 1;
     const retry = attempts < Number(job.max_attempts) && !Number(job.cancel_requested);
     const availableAt = new Date(Date.now() + Math.min(60_000, baseDelayMs * (2 ** (attempts - 1)))).toISOString();
-    await this.run('UPDATE execution_jobs SET attempts=?, status=?, available_at=?, error_message=?, lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE id=?', attempts, retry ? 'PENDING' : 'FAILED', availableAt, String(message).slice(0, 1000), now(), jobId);
+    await this.run('UPDATE execution_jobs SET attempts=?, status=?, available_at=?, error_message=?, lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE id=?', attempts, retry ? 'PENDING' : 'FAILED', availableAt, sanitizeDiagnostic(message), now(), jobId);
     await this.recordOperationalEvent('worker.execution_failed', 'error', job.project_id, null, `job=${jobId}; attempt=${attempts}`);
     return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
   }
@@ -778,14 +786,14 @@ class Store {
 
   async failWorkflowJob(jobId, workerId, errorMessage, { timedOut = false, retryDelayMs = 1000 } = {}) {
     const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
-    if (!job || job.lease_owner !== workerId || job.status !== 'RUNNING') return null;
+    if (!job || job.lease_owner !== workerId || !['RUNNING', 'CANCEL_REQUESTED'].includes(job.status)) return null;
     const exhausted = Number(job.attempts) >= Number(job.max_attempts);
     const cancelled = Number(job.cancel_requested) === 1;
     const terminal = timedOut ? 'TIMED_OUT' : cancelled ? 'CANCELLED' : exhausted ? 'FAILED' : 'QUEUED';
     const availableAt = new Date(Date.now() + Math.min(60_000, retryDelayMs * (2 ** Math.max(0, Number(job.attempts) - 1)))).toISOString();
     const completedAt = ['TIMED_OUT', 'CANCELLED', 'FAILED'].includes(terminal) ? now() : null;
     await this.run(`UPDATE execution_jobs SET status=?, available_at=?, error_message=?, poisoned=?, completed_at=?,
-      lease_owner=NULL, lease_expires_at=NULL, progress_stage=?, updated_at=? WHERE id=?`, terminal, availableAt, String(errorMessage).slice(0, 1000), exhausted ? 1 : 0, completedAt, terminal.toLowerCase(), now(), jobId);
+      lease_owner=NULL, lease_expires_at=NULL, progress_stage=?, updated_at=? WHERE id=?`, terminal, availableAt, sanitizeDiagnostic(errorMessage), exhausted ? 1 : 0, completedAt, terminal.toLowerCase(), now(), jobId);
     if (exhausted) await this.recordOperationalEvent('queue.poisoned_job', 'error', job.project_id, null, `job=${jobId}; attempts=${job.attempts}`);
     return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
   }
@@ -793,7 +801,7 @@ class Store {
   async blockWorkflowJob(jobId, reason, eventType = 'queue.job_rejected') {
     const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
     if (!job || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'EXPIRED', 'BLOCKED'].includes(job.status)) return job;
-    const detail = String(reason || 'Queue delivery was rejected.').slice(0, 1000);
+    const detail = sanitizeDiagnostic(reason || 'Queue delivery was rejected.');
     const timestamp = now();
     const updated = await this.get(`UPDATE execution_jobs SET status='BLOCKED', poisoned=1, error_message=?, completed_at=?,
       lease_owner=NULL, lease_expires_at=NULL, progress_stage='blocked', updated_at=? WHERE id=?
@@ -823,8 +831,15 @@ class Store {
   }
 
   async recoverExpiredExecutionJobs(timestamp = now()) {
-    await this.run("UPDATE execution_jobs SET status='EXPIRED', completed_at=?, progress_stage='expired', lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED','TIMED_OUT','EXPIRED') AND expires_at <= ?", timestamp, timestamp, timestamp);
-    await this.run("UPDATE execution_jobs SET status='QUEUED', progress_stage='recovered', lease_owner=NULL, lease_expires_at=NULL, available_at=?, updated_at=? WHERE status='RUNNING' AND lease_expires_at < ? AND cancel_requested=0 AND attempts < max_attempts", timestamp, timestamp, timestamp);
+    const expired = await this.run("UPDATE execution_jobs SET status='EXPIRED', completed_at=?, progress_stage='expired', lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED','TIMED_OUT','EXPIRED','BLOCKED') AND expires_at <= ?", timestamp, timestamp, timestamp);
+    const cancelled = await this.run("UPDATE execution_jobs SET status='CANCELLED', completed_at=?, progress_stage='cancelled', lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE status='CANCEL_REQUESTED' AND lease_expires_at < ?", timestamp, timestamp, timestamp);
+    const exhausted = await this.run("UPDATE execution_jobs SET status='FAILED', poisoned=1, completed_at=?, progress_stage='failed', error_message='Worker lease expired after retry limit', lease_owner=NULL, lease_expires_at=NULL, updated_at=? WHERE status='RUNNING' AND lease_expires_at < ? AND attempts >= max_attempts", timestamp, timestamp, timestamp);
+    const recovered = await this.run("UPDATE execution_jobs SET status='QUEUED', progress_stage='recovered', lease_owner=NULL, lease_expires_at=NULL, available_at=?, updated_at=? WHERE status='RUNNING' AND lease_expires_at < ? AND cancel_requested=0 AND attempts < max_attempts", timestamp, timestamp, timestamp);
+    const summary = { expired: Number(expired.changes || 0), cancelled: Number(cancelled.changes || 0), exhausted: Number(exhausted.changes || 0), recovered: Number(recovered.changes || 0) };
+    if (Object.values(summary).some(Boolean)) {
+      await this.recordOperationalEvent('queue.lease_recovery', summary.exhausted ? 'error' : 'info', null, null, `expired=${summary.expired}; cancelled=${summary.cancelled}; exhausted=${summary.exhausted}; recovered=${summary.recovered}`);
+    }
+    return summary;
   }
 
   async pendingOutbox(limit = 10) {
@@ -845,7 +860,7 @@ class Store {
     const attempts = Number(row.attempts) + 1;
     const terminal = attempts >= 5;
     const availableAt = new Date(Date.now() + Math.min(60_000, 1000 * (2 ** (attempts - 1)))).toISOString();
-    await this.run('UPDATE job_outbox SET status=?, attempts=?, available_at=?, last_error=?, updated_at=? WHERE id=?', terminal ? 'FAILED' : 'PENDING', attempts, availableAt, String(errorMessage).slice(0, 1000), now(), outboxId);
+    await this.run('UPDATE job_outbox SET status=?, attempts=?, available_at=?, last_error=?, updated_at=? WHERE id=?', terminal ? 'FAILED' : 'PENDING', attempts, availableAt, sanitizeDiagnostic(errorMessage), now(), outboxId);
     await this.recordOperationalEvent('queue.publication_failed', terminal ? 'error' : 'warning', null, null, `outbox=${outboxId}; attempt=${attempts}`);
     if (terminal) await this.run("UPDATE execution_jobs SET status='BLOCKED', poisoned=1, error_message='Queue publication exhausted retries', completed_at=?, updated_at=? WHERE id=?", now(), now(), row.job_id);
     return this.get('SELECT * FROM job_outbox WHERE id=?', outboxId);
@@ -915,11 +930,15 @@ class Store {
     const outbox = await this.all('SELECT status, COUNT(*) AS count FROM job_outbox GROUP BY status ORDER BY status');
     const oldest = await this.get("SELECT MIN(created_at) AS oldest FROM job_outbox WHERE status='PENDING'");
     const failures = await this.get("SELECT COUNT(*) AS count FROM operational_events WHERE severity='error' AND created_at>=?", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    const staleLeases = await this.get("SELECT COUNT(*) AS count FROM execution_jobs WHERE status IN ('RUNNING','CANCEL_REQUESTED') AND lease_expires_at < ?", now());
+    const poisonedJobs = await this.get('SELECT COUNT(*) AS count FROM execution_jobs WHERE poisoned=1');
     return {
       jobs,
       outbox,
       oldestPendingOutboxAgeMs: oldest?.oldest ? Math.max(0, Date.now() - Date.parse(oldest.oldest)) : 0,
       operationalErrorsLastHour: Number(failures?.count || 0),
+      staleLeases: Number(staleLeases?.count || 0),
+      poisonedJobs: Number(poisonedJobs?.count || 0),
       database: this.dialect === 'postgres'
         ? { dialect: 'postgres', total: this.pool.totalCount, idle: this.pool.idleCount, waiting: this.pool.waitingCount }
         : { dialect: 'sqlite' }

@@ -45,8 +45,9 @@ class OutboxDispatcher {
     for (const row of rows) {
       try {
         const result = await this.publisher.publish(row);
-        await this.store.markOutboxPublished(row.id, result.messageId || null);
-        results.push({ outboxId: row.id, status: 'PUBLISHED', messageId: result.messageId || null });
+        const messageId = result?.messageId || null;
+        await this.store.markOutboxPublished(row.id, messageId);
+        results.push({ outboxId: row.id, status: 'PUBLISHED', messageId });
       } catch (error) {
         const failed = await this.store.markOutboxFailure(row.id, error.message);
         results.push({ outboxId: row.id, status: failed.status, error: 'Queue publication failed.' });

@@ -10,6 +10,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test tests/**/*.test.js",
+    "test:phase8": "node --test tests/phase8_queue_reliability.test.js",
     "test:e2e": "playwright test",
     "preflight:staging": "node scripts/phase6/provider-preflight.js",
     "benchmark:impact": "node scripts/phase4/impact-benchmark.js",
