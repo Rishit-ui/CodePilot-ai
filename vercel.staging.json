@@ -15,6 +15,18 @@
     "api/[...path].js": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "api/queue-consumer.js": {
+      "memory": 1024,
+      "maxDuration": 300,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "codepilot-staging-jobs",
+          "retryAfterSeconds": 60,
+          "initialDelaySeconds": 0
+        }
+      ]
     }
   },
   "headers": [

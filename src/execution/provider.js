@@ -27,7 +27,7 @@ function validateWorkspace(files, limits) {
   return files.map((file) => {
     if (!file || typeof file.path !== 'string' || !Buffer.isBuffer(file.content)) throw new Error('Workspace files require path and Buffer content.');
     const normalized = file.path.replaceAll('\\', '/');
-    if (!normalized || normalized.startsWith('/') || normalized.includes('\0') || normalized.split('/').some((part) => !part || part === '.' || part === '..')) {
+    if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.includes('\0') || normalized.split('/').some((part) => !part || part === '.' || part === '..')) {
       throw new Error('Unsafe workspace path.');
     }
     if (file.content.length > limits.maxFileBytes) throw new Error('Workspace file-size limit exceeded.');

@@ -7,6 +7,7 @@ const { EXECUTION_RELEASE_VERIFIED } = require('../../src/config');
 const root = path.resolve(__dirname, '../..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const packageLock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+const stagingManifest = JSON.parse(fs.readFileSync(path.join(root, 'vercel.staging.json'), 'utf8'));
 const providerPackages = ['@vercel/sandbox', '@vercel/queue', '@vercel/blob', 'pg'];
 const variables = [
   ['CODEPILOT_SESSION_SECRET', true], ['DATABASE_URL', true], ['POSTGRES_URL', true],
@@ -30,7 +31,8 @@ const report = {
   configuration: Object.fromEntries(variables.map(([name, secret]) => [name, { configured: configured(name), secret }])),
   testGates: Object.fromEntries(['TEST_POSTGRES_URL', 'TEST_VERCEL_QUEUE', 'TEST_VERCEL_BLOB', 'TEST_VERCEL_SANDBOX', 'TEST_EXTERNAL_AI'].map((name) => [name, configured(name)])),
   vercelLink: fs.existsSync(path.join(root, '.vercel', 'project.json')),
-  consumerEntrypoint: false
+  consumerEntrypoint: fs.existsSync(path.join(root, 'api', 'queue-consumer.js'))
+    && stagingManifest.functions?.['api/queue-consumer.js']?.experimentalTriggers?.some((trigger) => trigger.type === 'queue/v2beta')
 };
 
 report.providerReadiness = {

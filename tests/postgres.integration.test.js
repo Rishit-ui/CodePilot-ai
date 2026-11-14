@@ -2,13 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { Store } = require('../src/db');
+const { JobConsumer } = require('../src/queue/vercel_queue');
 
 const databaseUrl = process.env.TEST_POSTGRES_URL;
 
 test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency, and tenant isolation', { skip: !databaseUrl }, async () => {
+  const databaseHost = new URL(databaseUrl).hostname;
   const options = {
     dataDir: '.unused', databaseUrl,
-    database: { sslMode: 'disable', poolMax: 4, connectionTimeoutMs: 5000, queryTimeoutMs: 15000 },
+    database: { sslMode: process.env.TEST_POSTGRES_SSL_MODE || (['localhost', '127.0.0.1', '::1'].includes(databaseHost) ? 'disable' : 'verify-full'), poolMax: 4, connectionTimeoutMs: 5000, queryTimeoutMs: 15000 },
     sessionSecret: 'postgres-integration-secret-value-over-32-characters'
   };
   const store = new Store(options);
@@ -36,6 +38,15 @@ test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency,
   const phase3Job = await store.createWorkflowJob({ projectId: project.id, actorId: alice.id, revisionId: saved.revision.id, jobType: 'source-analysis', idempotencyKey: `pg-phase3:${suffix}`, topic: 'phase3-jobs' });
   assert.equal(phase3Job.job.status, 'QUEUED');
   assert.equal((await store.createWorkflowJob({ projectId: project.id, actorId: alice.id, revisionId: saved.revision.id, jobType: 'source-analysis', idempotencyKey: `pg-phase3:${suffix}`, topic: 'phase3-jobs' })).created, false);
+  const consumerJob = await store.createWorkflowJob({ projectId: project.id, actorId: alice.id, revisionId: saved.revision.id, jobType: 'test-execution', executionProfile: 'node-test', idempotencyKey: `pg-consumer:${suffix}`, topic: 'phase7-jobs' });
+  await store.markOutboxPublished(consumerJob.outbox.id, `pg-message-${suffix}`);
+  const consumer = new JobConsumer({
+    store, workerId: `pg-worker-${suffix}`, expectedTopic: 'phase7-jobs', requireMetadata: true, executionEnabled: true,
+    orchestrator: { async execute(job, workerId) { return store.completeExecutionJob(job.id, workerId, { status: 'PASS', executed: true }, 'postgres-contract', `pg-run-${suffix}`); } }
+  });
+  const consumed = await consumer.consume(JSON.parse(consumerJob.outbox.payload), { messageId: `pg-message-${suffix}`, deliveryCount: 1, topicName: 'phase7-jobs', consumerGroup: 'phase7-postgres', region: 'iad1' });
+  assert.equal(consumed.status, 'SUCCEEDED');
+  assert.deepEqual(await consumer.consume(JSON.parse(consumerJob.outbox.payload), { messageId: `pg-message-${suffix}`, deliveryCount: 2, topicName: 'phase7-jobs', consumerGroup: 'phase7-postgres', region: 'iad1' }), { duplicate: true, status: 'SUCCEEDED' });
   await store.run('INSERT INTO test_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', `test_${suffix}`, project.id, saved.revision.id, 'external', 'node --test', 'PASS', 0, 'verified', 1, new Date().toISOString());
   const second = new Store(options);
   await second.ensureReady();

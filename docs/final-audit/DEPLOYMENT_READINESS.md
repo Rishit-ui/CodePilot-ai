@@ -2,7 +2,7 @@
 
 Evaluation: 2026-11-14
 
-Decision: `PASS` for a controlled deployment with arbitrary repository execution disabled; `BLOCKED` for enabling multi-tenant untrusted execution; cloud deployment itself is `NOT TESTED` and was prohibited.
+Current Phase 7 decision: `PASS` for code-level staging preparation and local platform use with execution disabled; `BLOCKED` for real staging until provider resources are authorized and tested; `NO-GO` for multi-tenant untrusted execution or production deployment.
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
@@ -52,3 +52,20 @@ Provider SDK compatibility was audited on 2026-11-14 and local lifecycle gaps we
 | Production deployment | `NOT TESTED`; not authorized |
 
 See `docs/phase-5/PHASE_5_FINAL_HANDOVER.md`. A configured provider is not reported as a healthy provider until a real probe succeeds.
+
+## Phase 7 release split
+
+The missing Queue consumer entry point and 20-scenario adversarial harness are implemented. The Queue implementation uses the provider-supported Node callback contract and staging-specific trigger, then revalidates outbox, topic, provider message ID, project actor, revision, lease, cancellation, and release state before processing. The Sandbox harness can execute all 20 attacks against a real provider and cannot become release-eligible unless every scenario passes.
+
+Final Phase 7 local evidence: `npm run check` passed; 96 tests were discovered, 91 passed, 0 failed, and 5 real-provider tests skipped; Playwright passed 23/23. The Sandbox aggregate without a provider is 1 local adapter PASS and 19 BLOCKED.
+
+| Release surface | Decision |
+|---|---|
+| Request isolated staging provisioning | `GO` after explicit owner authorization and cost cap |
+| Platform code with execution disabled | `PASS` locally |
+| Real Vercel staging | `BLOCKED` pending resources, credentials and deployed evidence |
+| Queue provider delivery | `BLOCKED`; local contract passes, no real callback occurred |
+| Sandbox execution | `BLOCKED`; harness ready, 19 provider attacks unexecuted |
+| Production | `NO-GO`; not authorized or tested |
+
+See `docs/phase-7/PHASE_7_FINAL_HANDOVER.md`.

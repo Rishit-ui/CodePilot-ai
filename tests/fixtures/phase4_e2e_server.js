@@ -5,6 +5,7 @@ const { createApp } = require('../../src/server');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-phase4-e2e-'));
 const app = createApp({
+  queuePublisher: { async publish(outbox) { return { messageId: `browser-${outbox.id}` }; } },
   config: {
     env: 'test', isProduction: false, host: '127.0.0.1', port: 3414, dataDir,
     sessionSecret: 'phase4-browser-session-secret-over-32-characters', authEnabled: true,

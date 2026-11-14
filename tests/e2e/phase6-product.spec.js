@@ -127,6 +127,23 @@ test('patch manager renders the staged review without applying it', async ({ pag
   await expect(page.locator('#patches-container')).toContainText('draft');
 });
 
+test('owned job creation is idempotent while execution jobs remain release-blocked', async ({ page }) => {
+  await openProject(page);
+  const headers = { Authorization: `Bearer ${token}`, 'Idempotency-Key': `phase7-browser-${Date.now()}` };
+  const created = await page.request.post(`/api/projects/${projectId}/jobs`, { headers, data: { jobType: 'source-analysis' } });
+  expect(created.status(), await created.text()).toBe(202);
+  const first = await created.json();
+  const duplicate = await page.request.post(`/api/projects/${projectId}/jobs`, { headers, data: { jobType: 'source-analysis' } });
+  expect(duplicate.status(), await duplicate.text()).toBe(200);
+  expect((await duplicate.json()).job.id).toBe(first.job.id);
+  const blocked = await page.request.post(`/api/projects/${projectId}/jobs`, {
+    headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': `phase7-execution-${Date.now()}` },
+    data: { jobType: 'test-execution', executionProfile: 'node-test' }
+  });
+  expect(blocked.status()).toBe(503);
+  expect((await blocked.json()).error.code).toBe('EXECUTION_RELEASE_BLOCKED');
+});
+
 test('navigation, command palette, theme, and responsive sidebar remain usable', async ({ page }) => {
   await openProject(page);
   await page.keyboard.press('Control+K');

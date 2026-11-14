@@ -20,7 +20,7 @@ test('loadConfig loads safe defaults in development', () => {
 
 test('production execution cannot be enabled by environment configuration alone', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-release-gate-'));
-  const keys = ['NODE_ENV', 'DATABASE_URL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED', 'CODEPILOT_EXECUTION_MODE', 'CODEPILOT_WORKER_PROVIDER'];
+  const keys = ['NODE_ENV', 'DATABASE_URL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED', 'CODEPILOT_EXECUTION_MODE', 'CODEPILOT_WORKER_PROVIDER', 'CODEPILOT_EXECUTION_RELEASE_VERIFIED', 'EXECUTION_RELEASE_VERIFIED'];
   const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
     process.env.NODE_ENV = 'production';
@@ -29,7 +29,11 @@ test('production execution cannot be enabled by environment configuration alone'
     process.env.CODEPILOT_AUTH_ENABLED = 'true';
     process.env.CODEPILOT_EXECUTION_MODE = 'external-worker';
     process.env.CODEPILOT_WORKER_PROVIDER = 'vercel-sandbox';
+    process.env.CODEPILOT_EXECUTION_RELEASE_VERIFIED = 'true';
+    process.env.EXECUTION_RELEASE_VERIFIED = 'true';
     assert.throws(() => loadConfig(tempRoot), /release-blocked/);
+    process.env.CODEPILOT_EXECUTION_MODE = 'local-development';
+    assert.throws(() => loadConfig(tempRoot), /local-development execution is forbidden/);
   } finally {
     for (const key of keys) original[key] === undefined ? delete process.env[key] : process.env[key] = original[key];
     fs.rmSync(tempRoot, { recursive: true, force: true });

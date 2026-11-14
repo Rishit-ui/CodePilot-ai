@@ -41,7 +41,7 @@ test('consumer revalidates outbox, claims once, and treats redelivery idempotent
   await dispatcher.dispatch();
   const envelope = JSON.parse(created.outbox.payload);
   let runs = 0;
-  const consumer = new JobConsumer({ store, workerId: 'worker-1', orchestrator: { async execute(job, workerId) { runs += 1; return store.completeExecutionJob(job.id, workerId, { status: 'PASS', executed: true }, 'fake-provider', 'sandbox-1'); } } });
+  const consumer = new JobConsumer({ store, workerId: 'worker-1', allowedJobTypes: ['source-analysis'], orchestrator: { async execute(job, workerId) { runs += 1; return store.completeExecutionJob(job.id, workerId, { status: 'PASS', executed: true }, 'fake-provider', 'sandbox-1'); } } });
   const completed = await consumer.consume(envelope);
   const duplicate = await consumer.consume(envelope);
   assert.equal(completed.status, 'SUCCEEDED');

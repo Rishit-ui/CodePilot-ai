@@ -790,6 +790,21 @@ class Store {
     return this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
   }
 
+  async blockWorkflowJob(jobId, reason, eventType = 'queue.job_rejected') {
+    const job = await this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+    if (!job || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'EXPIRED', 'BLOCKED'].includes(job.status)) return job;
+    const detail = String(reason || 'Queue delivery was rejected.').slice(0, 1000);
+    const timestamp = now();
+    const updated = await this.get(`UPDATE execution_jobs SET status='BLOCKED', poisoned=1, error_message=?, completed_at=?,
+      lease_owner=NULL, lease_expires_at=NULL, progress_stage='blocked', updated_at=? WHERE id=?
+      AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED','TIMED_OUT','EXPIRED','BLOCKED') RETURNING *`, detail, timestamp, timestamp, jobId);
+    if (updated) {
+      await this.recordOperationalEvent(eventType, 'error', updated.project_id, null, `job=${jobId}; ${detail}`);
+      await this.audit('job.blocked', updated.project_id, `Blocked job ${jobId}: ${detail}`, updated.actor_id);
+    }
+    return updated || this.get('SELECT * FROM execution_jobs WHERE id=?', jobId);
+  }
+
   async cancelWorkflowJob(jobId, actorId) {
     const job = await this.get('SELECT * FROM execution_jobs WHERE id=? AND actor_id=?', jobId, actorId);
     if (!job || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'EXPIRED'].includes(job.status)) return null;
