@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { makeZip } = require('../helpers');
 
@@ -24,8 +25,7 @@ test('all product workspaces navigate, authenticate, remain responsive, and expo
   await page.locator('#project-create-modal-form button[type="submit"]').click();
   await expect(page.locator('#active-project-views')).toBeVisible();
 
-  const fixturePath = path.resolve('artifacts/phase4/browser-fixture.zip');
-  fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+  const fixturePath = path.join(os.tmpdir(), `codepilot-phase4-browser-${process.pid}.zip`);
   fs.writeFileSync(fixturePath, makeZip([
     { name: 'package.json', content: '{"name":"browser-fixture"}' },
     { name: 'src/index.js', content: 'const express = require("express");\nconst app=express();\napp.get("/health", () => ({ok:true}));\nmodule.exports={app};' },
@@ -73,7 +73,7 @@ test('all product workspaces navigate, authenticate, remain responsive, and expo
   await page.locator('#btn-theme-toggle').click();
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', beforeTheme);
 
-  const screenshotDir = path.resolve('artifacts/phase4/screenshots');
+  const screenshotDir = path.resolve('artifacts/phase6/screenshots');
   fs.mkdirSync(screenshotDir, { recursive: true });
   await page.screenshot({ path: path.join(screenshotDir, 'desktop-testing-disabled.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });

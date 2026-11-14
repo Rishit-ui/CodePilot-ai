@@ -5,7 +5,7 @@ module.exports = defineConfig({
   timeout: 30_000,
   retries: 0,
   workers: 1,
-  reporter: [['list'], ['json', { outputFile: 'results/phase4/playwright-results.json' }]],
+  reporter: [['list'], ['json', { outputFile: 'results/phase6/playwright-results.json' }]],
   use: {
     baseURL: 'http://127.0.0.1:3414',
     channel: 'msedge',

@@ -1749,7 +1749,7 @@ window.addEventListener('DOMContentLoaded', () => {
       'UNCERTAINTY CONE (' + ((r.uncertainty || []).length) + '):',
       ...(r.uncertainty || []).map(n => '  ' + n),
       '',
-      'AFFECTED ENDPOINTS: ' + ((r.affectedEndpoints || []).join(', ') || 'none'),
+      'AFFECTED ENDPOINTS: ' + ((r.affectedEndpoints || []).map(endpoint => endpoint?.name || endpoint?.id || String(endpoint)).join(', ') || 'none'),
       'AFFECTED CONFIGS:   ' + ((r.affectedConfigKeys || []).join(', ') || 'none'),
     ];
     return lines.join('\n');
