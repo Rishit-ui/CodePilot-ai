@@ -1,5 +1,9 @@
 const { send } = require('@vercel/queue');
 
+class NonRetryableQueueError extends Error {
+  constructor(message) { super(message); this.name = 'NonRetryableQueueError'; this.retryable = false; }
+}
+
 class VercelQueuePublisher {
   constructor({ region = 'iad1' } = {}) { this.region = region; }
   async publish(outbox) {
@@ -36,10 +40,10 @@ class JobConsumer {
   constructor({ store, orchestrator, workerId }) { this.store = store; this.orchestrator = orchestrator; this.workerId = workerId; }
   async consume(message, signal) {
     if (!message || message.version !== 1 || typeof message.jobId !== 'string' || typeof message.outboxId !== 'string' || Object.keys(message).length !== 3) {
-      throw new Error('Invalid queue message envelope.');
+      throw new NonRetryableQueueError('Invalid queue message envelope.');
     }
     const outbox = await this.store.get('SELECT * FROM job_outbox WHERE id=? AND job_id=?', message.outboxId, message.jobId);
-    if (!outbox || outbox.status !== 'PUBLISHED') throw new Error('Queue message has no published database outbox record.');
+    if (!outbox || outbox.status !== 'PUBLISHED') throw new NonRetryableQueueError('Queue message has no published database outbox record.');
     const claimed = await this.store.claimExecutionJob(message.jobId, this.workerId, 90_000);
     if (!claimed) {
       const existing = await this.store.get('SELECT status FROM execution_jobs WHERE id=?', message.jobId);
@@ -50,4 +54,4 @@ class JobConsumer {
   }
 }
 
-module.exports = { VercelQueuePublisher, OutboxDispatcher, JobConsumer };
+module.exports = { VercelQueuePublisher, OutboxDispatcher, JobConsumer, NonRetryableQueueError };

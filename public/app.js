@@ -11,6 +11,7 @@ const state = {
   activeView: 'view-overview',
   activeOperation: null,
   operations: [],
+  health: null,
   flow: {
     type: 'architecture',
     data: null,
@@ -108,9 +109,19 @@ async function checkHealth() {
   const pill = $('#service-pill');
   try {
     const health = await api('/api/health');
+    state.health = health;
     pill.textContent = `Online · v${health.version}`;
     pill.className = 'pill pill-online';
     const executionBlocked = !health.capabilities?.executionReleaseVerified;
+    const providerLabel = (value) => value && value !== 'disabled' ? `${value} · configured, not probed` : 'disabled';
+    if ($('#status-queue')) $('#status-queue').textContent = providerLabel(health.capabilities?.queue);
+    if ($('#status-storage')) $('#status-storage').textContent = providerLabel(health.capabilities?.privateStorage);
+    if ($('#status-ai')) $('#status-ai').textContent = health.capabilities?.aiProvider === 'local'
+      ? 'local deterministic'
+      : providerLabel(health.capabilities?.aiProvider);
+    if ($('#status-sandbox')) $('#status-sandbox').textContent = executionBlocked
+      ? 'disabled · verification required'
+      : providerLabel(health.capabilities?.execution);
     for (const id of ['#btn-run-tests', '#btn-impact-run']) {
       const control = $(id);
       if (control) {
@@ -119,9 +130,47 @@ async function checkHealth() {
       }
     }
   } catch {
+    state.health = null;
     pill.textContent = 'Service Offline';
     pill.className = 'pill pill-idle';
   }
+}
+
+async function sha256Hex(buffer) {
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+function uploadWithProgress(url, file, contentType, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PUT', url);
+    request.setRequestHeader('Content-Type', contentType);
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    });
+    request.addEventListener('load', () => request.status >= 200 && request.status < 300
+      ? resolve()
+      : reject(new Error(`Private storage upload failed with HTTP ${request.status}.`)));
+    request.addEventListener('error', () => reject(new Error('Private storage upload failed due to a network error.')));
+    request.send(file);
+  });
+}
+
+async function uploadLargeZipToPrivateStorage(file) {
+  const buffer = await file.arrayBuffer();
+  const contentType = file.type === 'application/x-zip-compressed' ? file.type : 'application/zip';
+  showFeedback('#import-feedback', 'Computing SHA-256 before private upload…');
+  const authorization = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/uploads/authorize`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sizeBytes: file.size, sha256: await sha256Hex(buffer), contentType })
+  });
+  await uploadWithProgress(authorization.authorization.presignedUrl, file, contentType, (percent) => {
+    showFeedback('#import-feedback', `Uploading directly to private storage… ${percent}%`);
+  });
+  const completed = await api(`/api/projects/${encodeURIComponent(state.activeProject)}/uploads/${encodeURIComponent(authorization.intent.id)}/complete`, { method: 'POST' });
+  if (completed.job) showFeedback('#import-feedback', 'Private upload verified; ingestion job queued.');
+  else showFeedback('#import-feedback', 'Private upload verified. Ingestion is waiting for a configured durable queue.');
 }
 
 // Theme Management
@@ -1407,10 +1456,13 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#zip-file-input')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (file && file.size > 4.5 * 1024 * 1024) {
+      const privateStorage = state.health?.capabilities?.privateStorage === 'vercel-blob';
       showFeedback(
         '#import-feedback',
-        `⚠️ Selected archive is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Direct upload to Vercel is limited to 4.5MB by the edge proxy. Please use the "🔗 GitHub Repository Link" tab to import repos up to 100MB directly!`,
-        true
+        privateStorage
+          ? `Selected archive is ${(file.size / (1024 * 1024)).toFixed(1)}MB and will upload directly to configured private storage.`
+          : `Selected archive is ${(file.size / (1024 * 1024)).toFixed(1)}MB. The 4.5MB function limit requires configured private storage or GitHub import.`,
+        !privateStorage
       );
     } else {
       showFeedback('#import-feedback', '');
@@ -1424,9 +1476,26 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
 
     if (file.size > 4.5 * 1024 * 1024) {
+      if (state.health?.capabilities?.privateStorage === 'vercel-blob') {
+        try {
+          if (!state.activeProject) {
+            const pRes = await api('/api/projects', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: file.name.replace(/\.zip$/i, '') || 'Imported Project' })
+            });
+            state.activeProject = pRes.project.id;
+            await loadProjects();
+          }
+          await uploadLargeZipToPrivateStorage(file);
+          await selectProject(state.activeProject);
+        } catch (error) {
+          showFeedback('#import-feedback', error.message, true);
+        }
+        return;
+      }
       showFeedback(
         '#import-feedback',
-        `Direct upload blocked: "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB, exceeding Vercel's 4.5MB direct upload limit. Please use the "🔗 GitHub Repository Link" tab to import this repository directly without size restrictions!`,
+        `Direct upload blocked: "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Configure private storage or use GitHub import.`,
         true
       );
       return;

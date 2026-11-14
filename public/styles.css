@@ -833,6 +833,20 @@ pre code {
   transition: width 0.4s ease;
 }
 
+.provider-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0;
+}
+
+.provider-status-grid span {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: var(--bg-surface-elevated);
+}
+
 /* --------------------------------------------------------------------------
    17. Spinners & Loading
    -------------------------------------------------------------------------- */

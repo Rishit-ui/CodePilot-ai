@@ -126,12 +126,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 6017,
+                  "duration": 5774,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-13T18:58:42.793Z",
+                  "startTime": "2026-11-14T17:13:43.120Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -149,8 +149,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-13T18:58:41.390Z",
-    "duration": 8490.415,
+    "startTime": "2026-11-14T17:13:41.692Z",
+    "duration": 8115.7609999999995,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,

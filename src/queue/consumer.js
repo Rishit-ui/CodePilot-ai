@@ -5,6 +5,12 @@ const { VercelSandboxProvider } = require('../execution/vercel_sandbox_provider'
 const { ExecutionOrchestrator } = require('../execution/orchestrator');
 const { JobConsumer } = require('./vercel_queue');
 
+function queueRetryDirective(error, metadata) {
+  if (error?.retryable === false) return { acknowledge: true };
+  const attempts = Math.max(1, Number(metadata?.deliveryCount || 1));
+  return { afterSeconds: Math.min(60, 2 ** Math.min(attempts, 5)) };
+}
+
 function buildQueueConsumer(config) {
   if (!config.execution.releaseVerified || config.execution.mode !== 'external-worker' || config.execution.provider !== 'vercel-sandbox') {
     throw new Error('Execution consumer is release-blocked until real-provider adversarial verification passes.');
@@ -29,7 +35,13 @@ function buildQueueConsumer(config) {
     }
   });
   const consumer = new JobConsumer({ store, orchestrator, workerId: `vercel-${crypto.randomUUID()}` });
-  return handleCallback(async (message) => consumer.consume(message));
+  return handleCallback(
+    async (message) => consumer.consume(message),
+    {
+      visibilityTimeoutSeconds: 90,
+      retry: queueRetryDirective
+    }
+  );
 }
 
-module.exports = { buildQueueConsumer };
+module.exports = { buildQueueConsumer, queueRetryDirective };

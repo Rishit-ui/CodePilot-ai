@@ -77,3 +77,29 @@ test('production rejects weak secrets and disabled authentication, including Ver
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('production external AI requires explicit credentials and model selection', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codepilot-ai-config-'));
+  const keys = ['NODE_ENV', 'DATABASE_URL', 'CODEPILOT_SESSION_SECRET', 'CODEPILOT_AUTH_ENABLED', 'CODEPILOT_EXECUTION_MODE', 'CODEPILOT_AI_PROVIDER', 'CODEPILOT_AI_API_KEY', 'CODEPILOT_AI_MODEL'];
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.DATABASE_URL = 'postgres://user:pass@db.example.com/codepilot';
+    process.env.CODEPILOT_SESSION_SECRET = 'z'.repeat(64);
+    process.env.CODEPILOT_AUTH_ENABLED = 'true';
+    process.env.CODEPILOT_EXECUTION_MODE = 'disabled';
+    process.env.CODEPILOT_AI_PROVIDER = 'openai';
+    delete process.env.CODEPILOT_AI_API_KEY;
+    delete process.env.CODEPILOT_AI_MODEL;
+    assert.throws(() => loadConfig(tempRoot), /AI_API_KEY/);
+    process.env.CODEPILOT_AI_API_KEY = 'not-a-real-key';
+    assert.throws(() => loadConfig(tempRoot), /AI_MODEL/);
+    process.env.CODEPILOT_AI_MODEL = 'explicit-model';
+    const config = loadConfig(tempRoot);
+    assert.equal(config.ai.provider, 'openai');
+    assert.equal(config.ai.model, 'explicit-model');
+  } finally {
+    for (const key of keys) original[key] === undefined ? delete process.env[key] : process.env[key] = original[key];
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});

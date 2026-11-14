@@ -860,6 +860,16 @@ class Store {
     return this.get('SELECT * FROM upload_intents WHERE id=?', intentId);
   }
 
+  async expiredUploadIntents(timestamp = now(), limit = 100) {
+    return this.all("SELECT * FROM upload_intents WHERE status='AUTHORIZED' AND expires_at <= ? ORDER BY expires_at LIMIT ?", timestamp, Math.min(Math.max(Number(limit) || 1, 1), 500));
+  }
+
+  async markUploadIntentAbandoned(intentId, detail = 'Expired upload authorization.') {
+    const intent = await this.get("UPDATE upload_intents SET status='ABANDONED', completed_at=? WHERE id=? AND status='AUTHORIZED' RETURNING *", now(), intentId);
+    if (intent) await this.audit('upload.abandoned', intent.project_id, `${detail} ${intentId}`, intent.owner_id);
+    return intent;
+  }
+
   async createJobArtifact({ jobId, projectId, ownerId, kind, objectKey, contentType, sizeBytes, sha256, expiresAt = null }) {
     const artifactId = id('artifact');
     await this.run('INSERT INTO job_artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', artifactId, jobId, projectId, ownerId, kind, objectKey, contentType || null, sizeBytes, sha256, now(), expiresAt);
@@ -871,6 +881,14 @@ class Store {
     return user.is_global_admin
       ? this.get('SELECT * FROM job_artifacts WHERE id=?', artifactId)
       : this.get('SELECT * FROM job_artifacts WHERE id=? AND owner_id=?', artifactId, user.id);
+  }
+
+  async expiredJobArtifacts(timestamp = now(), limit = 100) {
+    return this.all('SELECT * FROM job_artifacts WHERE expires_at IS NOT NULL AND expires_at <= ? ORDER BY expires_at LIMIT ?', timestamp, Math.min(Math.max(Number(limit) || 1, 1), 500));
+  }
+
+  async deleteJobArtifactRecord(artifactId) {
+    return this.get('DELETE FROM job_artifacts WHERE id=? RETURNING *', artifactId);
   }
 
   async recordResourceUsage(ownerId, projectId, jobId, metric, value, unit) {

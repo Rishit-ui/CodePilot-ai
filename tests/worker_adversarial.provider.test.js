@@ -9,9 +9,9 @@ const scenarios = [
 ];
 
 test('real Vercel Sandbox adversarial suite requires authorized provider credentials', { skip: process.env.TEST_VERCEL_SANDBOX !== '1' }, async (t) => {
-  // Deliberately not simulated: each scenario must be implemented and observed
-  // in an authorized provider account before the source-controlled release gate changes.
-  for (const scenario of scenarios) {
-    await t.test(scenario, { skip: 'Provider-backed attack implementation and credentials are not authorized in this environment.' }, () => {});
-  }
+  assertProviderHarnessConfigured();
 });
+
+function assertProviderHarnessConfigured() {
+  throw new Error(`Real provider adversarial harness is not implemented for: ${scenarios.join(', ')}. The execution release gate must remain false.`);
+}

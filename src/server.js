@@ -282,6 +282,9 @@ function createApp(options = {}) {
               rateLimitStore: config.rateLimit.enabled ? { status: 'available', backend: store.dialect } : { status: 'disabled' },
               queue: { status: outboxDispatcher ? 'configured-not-probed' : 'disabled', provider: config.queue.provider },
               privateStorage: { status: objectStorage ? 'configured-not-probed' : 'disabled', provider: config.storage.provider },
+              aiProvider: config.ai.provider === 'local'
+                ? { status: 'local-deterministic', provider: 'local' }
+                : { status: 'configured-not-probed', provider: config.ai.provider },
               worker: config.execution.releaseVerified && config.execution.mode === 'external-worker'
                 ? { status: 'configured-not-probed', provider: config.execution.provider }
                 : { status: 'disabled', releaseVerified: false }
@@ -297,6 +300,7 @@ function createApp(options = {}) {
               rateLimitStore: config.rateLimit.enabled ? { status: 'unavailable', backend: store.dialect } : { status: 'disabled' },
               queue: { status: outboxDispatcher ? 'configured-not-probed' : 'disabled' },
               privateStorage: { status: objectStorage ? 'configured-not-probed' : 'disabled' },
+              aiProvider: config.ai.provider === 'local' ? { status: 'local-deterministic' } : { status: 'configured-not-probed' },
               worker: { status: 'disabled', releaseVerified: false }
             },
             requestId

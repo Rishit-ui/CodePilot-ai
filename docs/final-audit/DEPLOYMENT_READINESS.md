@@ -38,3 +38,17 @@ Readiness requires PostgreSQL. `/api/ready` returns 503 with sanitized dependenc
 ## Phase 4 release split
 
 The authenticated platform surface is `GO` for controlled staging/use with execution disabled and within documented parser/benchmark limits. Untrusted execution remains `BLOCKED`; the source-controlled release flag is unchanged. No cloud deployment was performed.
+
+## Phase 5 release split
+
+Provider SDK compatibility was audited on 2026-11-14 and local lifecycle gaps were repaired. Final local evidence is 88 tests discovered, 83 passed, 0 failed and 5 explicit external-provider/infrastructure skips. The real-cloud gates remain blocked because no provider credentials or staging resources were authorized.
+
+| Release surface | Decision |
+| --- | --- |
+| Local/authenticated platform with execution disabled | `PASS` locally |
+| Controlled cloud staging | `BLOCKED` pending managed PostgreSQL, Queue, private Blob and deployed readiness evidence |
+| External AI | `BLOCKED` pending real auth/model/connectivity test |
+| Untrusted execution | `BLOCKED`; `executionReleaseVerified=false` |
+| Production deployment | `NOT TESTED`; not authorized |
+
+See `docs/phase-5/PHASE_5_FINAL_HANDOVER.md`. A configured provider is not reported as a healthy provider until a real probe succeeds.

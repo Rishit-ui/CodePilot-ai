@@ -238,6 +238,17 @@
               </div>
             </div>
 
+            <div class="panel provider-status-panel" role="status" aria-live="polite" aria-label="Provider configuration status">
+              <h3 class="panel-subtitle">Service Connectivity</h3>
+              <div class="provider-status-grid">
+                <span>Queue <strong id="status-queue">checking</strong></span>
+                <span>Private storage <strong id="status-storage">checking</strong></span>
+                <span>AI <strong id="status-ai">checking</strong></span>
+                <span>Sandbox <strong id="status-sandbox">checking</strong></span>
+              </div>
+              <p class="muted">Configured providers are not shown as healthy until a real provider probe succeeds.</p>
+            </div>
+
             <!-- Repository Ingestion Card -->
             <div class="panel" role="region" aria-labelledby="ingestion-heading">
               <h3 id="ingestion-heading" class="panel-subtitle">Repository Ingestion &amp; Revisions</h3>

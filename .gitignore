@@ -1,6 +1,9 @@
 .data/
 node_modules/
 .env
+.env.*
+!.env.example
+!.env.staging.example
 coverage/
 npm-debug.log*
 test-results/

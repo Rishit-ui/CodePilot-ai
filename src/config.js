@@ -92,9 +92,13 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
   const queueProvider = env.CODEPILOT_QUEUE_PROVIDER || 'disabled';
   const storageProvider = env.CODEPILOT_STORAGE_PROVIDER || 'disabled';
   const workerProvider = env.CODEPILOT_WORKER_PROVIDER || 'disabled';
+  const aiProvider = (env.CODEPILOT_AI_PROVIDER || 'local').toLowerCase();
   if (!['disabled', 'vercel-queues'].includes(queueProvider)) throw new Error('FATAL: unsupported queue provider.');
   if (!['disabled', 'vercel-blob'].includes(storageProvider)) throw new Error('FATAL: unsupported storage provider.');
   if (!['disabled', 'vercel-sandbox'].includes(workerProvider)) throw new Error('FATAL: unsupported worker provider.');
+  if (!['local', 'openai', 'anthropic', 'gemini'].includes(aiProvider)) throw new Error('FATAL: unsupported AI provider.');
+  if (isProd && aiProvider !== 'local' && !env.CODEPILOT_AI_API_KEY) throw new Error('FATAL: CODEPILOT_AI_API_KEY is required for the configured external AI provider.');
+  if (isProd && aiProvider !== 'local' && !env.CODEPILOT_AI_MODEL) throw new Error('FATAL: CODEPILOT_AI_MODEL must be explicit in production to avoid provider model drift.');
 
   // Direct HTTP upload limit (4.5MB edge proxy limit on Vercel)
   const defaultMaxUpload = isVercel ? 4.5 * 1024 * 1024 : 10 * 1024 * 1024;
@@ -162,10 +166,13 @@ function loadConfig(rootDir = path.resolve(__dirname, '..')) {
       storageBytesPerUser: integer(env.CODEPILOT_STORAGE_BYTES_PER_USER, 500 * 1024 * 1024, 1024 * 1024, 10 * 1024 * 1024 * 1024)
     }),
     ai: Object.freeze({
-      provider: env.CODEPILOT_AI_PROVIDER || 'local', // 'local' | 'openai' | 'anthropic' | 'gemini'
+      provider: aiProvider,
       apiKey: env.CODEPILOT_AI_API_KEY || '',
-      model: env.CODEPILOT_AI_MODEL || (env.CODEPILOT_AI_PROVIDER === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini'),
-      baseUrl: env.CODEPILOT_AI_BASE_URL || ''
+      model: env.CODEPILOT_AI_MODEL || (aiProvider === 'anthropic' ? 'claude-sonnet-4-5' : aiProvider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o-mini'),
+      baseUrl: env.CODEPILOT_AI_BASE_URL || '',
+      timeoutMs: integer(env.CODEPILOT_AI_TIMEOUT_MS, 25_000, 250, 120_000),
+      maxRetries: integer(env.CODEPILOT_AI_MAX_RETRIES, 2, 0, 3),
+      maxResponseBytes: integer(env.CODEPILOT_AI_MAX_RESPONSE_BYTES, 1024 * 1024, 1024, 4 * 1024 * 1024)
     }),
     deployment: Object.freeze({
       allowedProviders: ['local-docker', 'render', 'vercel', 'fly', 'static', 'mock'],

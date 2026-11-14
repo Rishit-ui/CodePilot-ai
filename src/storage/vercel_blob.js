@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { issueSignedToken, presignUrl, head, get } = require('@vercel/blob');
+const { issueSignedToken, presignUrl, head, get, del } = require('@vercel/blob');
 
 function safeObjectKey(value) {
   return typeof value === 'string' && /^codepilot\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+$/.test(value) && !value.includes('..');
@@ -45,6 +45,44 @@ class VercelBlobStorage {
     const { presignedUrl } = await presignUrl(token, { operation: 'get', pathname: objectKey, access: 'private', validUntil, useCache: false });
     return { presignedUrl, validUntil };
   }
+
+  async deleteObject(objectKey) {
+    if (!safeObjectKey(objectKey)) throw new Error('Invalid private object key.');
+    await del(objectKey, this.options);
+  }
 }
 
-module.exports = { VercelBlobStorage, safeObjectKey };
+async function cleanupAbandonedUploads({ store, storage, limit = 100, timestamp = new Date().toISOString() }) {
+  const rows = await store.expiredUploadIntents(timestamp, limit);
+  const results = [];
+  for (const row of rows) {
+    try {
+      await storage.deleteObject(row.object_key);
+      await store.markUploadIntentAbandoned(row.id, 'Expired upload authorization; private object deleted if present.');
+      results.push({ intentId: row.id, status: 'DELETED' });
+    } catch (error) {
+      await store.recordOperationalEvent('storage.cleanup_failed', 'warning', row.project_id, null, `upload=${row.id}`);
+      results.push({ intentId: row.id, status: 'RETRY_REQUIRED' });
+    }
+  }
+  return results;
+}
+
+async function cleanupExpiredArtifacts({ store, storage, limit = 100, timestamp = new Date().toISOString() }) {
+  const rows = await store.expiredJobArtifacts(timestamp, limit);
+  const results = [];
+  for (const row of rows) {
+    try {
+      await storage.deleteObject(row.object_key);
+      await store.deleteJobArtifactRecord(row.id);
+      await store.recordOperationalEvent('storage.artifact_expired', 'info', row.project_id, null, `artifact=${row.id}`);
+      results.push({ artifactId: row.id, status: 'DELETED' });
+    } catch {
+      await store.recordOperationalEvent('storage.cleanup_failed', 'warning', row.project_id, null, `artifact=${row.id}`);
+      results.push({ artifactId: row.id, status: 'RETRY_REQUIRED' });
+    }
+  }
+  return results;
+}
+
+module.exports = { VercelBlobStorage, safeObjectKey, cleanupAbandonedUploads, cleanupExpiredArtifacts };
