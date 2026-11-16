@@ -56,7 +56,7 @@ test('actual PostgreSQL lifecycle, migrations, restart persistence, concurrency,
   assert.ok((await store.listProjects(null, alice.id)).some((candidate) => candidate.id === project.id));
   assert.equal((await store.listProjects(null, bob.id)).length, 0);
   const migrations = await store.all('SELECT version FROM schema_migrations ORDER BY version');
-  assert.deepEqual(migrations.map((row) => Number(row.version)), [1, 2, 3, 4, 5]);
+  assert.deepEqual(migrations.map((row) => Number(row.version)), [1, 2, 3, 4, 5, 6]);
   await assert.rejects(() => store.run('INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?)', `bad_${suffix}`, 'missing-project', 'bad', new Date().toISOString(), 'ready', null));
   const migrationClient = await store.pool.connect();
   try {

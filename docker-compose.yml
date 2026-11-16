@@ -1,28 +1,75 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-codepilot}
+      POSTGRES_USER: ${POSTGRES_USER:-codepilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.docker}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - codepilot-internal
+
   codepilot:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: codepilot-ai
+      target: runner
+    init: true
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${CODEPILOT_BIND_ADDRESS:-127.0.0.1}:${CODEPILOT_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       CODEPILOT_HOST: 0.0.0.0
       CODEPILOT_PORT: 3000
       CODEPILOT_AUTH_ENABLED: "true"
       CODEPILOT_SESSION_SECRET: ${CODEPILOT_SESSION_SECRET:?CODEPILOT_SESSION_SECRET must be set to a strong random value}
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must reference a durable PostgreSQL database}
-      CODEPILOT_DB_SSL_MODE: ${CODEPILOT_DB_SSL_MODE:-verify-full}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-codepilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-codepilot}
+      CODEPILOT_DB_SSL_MODE: disable
       CODEPILOT_RATE_LIMIT_ENABLED: "true"
+      CODEPILOT_TRUST_PROXY: "false"
       CODEPILOT_EXECUTION_MODE: disabled
       CODEPILOT_WORKER_PROVIDER: disabled
       CODEPILOT_QUEUE_PROVIDER: disabled
       CODEPILOT_STORAGE_PROVIDER: disabled
+      CODEPILOT_AI_PROVIDER: local
     volumes:
       - codepilot-data:/app/.data
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 15s
+    networks:
+      - codepilot-internal
 
 volumes:
+  postgres-data:
   codepilot-data:
-    driver: local
+
+networks:
+  codepilot-internal:
+    driver: bridge
