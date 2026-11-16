@@ -10,3 +10,17 @@ coverage/
 npm-debug.log*
 test-results/
 playwright-report/
+
+# CodePilot SecureScan ML (generated locally; source and reports remain trackable)
+ml/securescan/.venv/
+ml/securescan/.cache/
+ml/securescan/data/raw/
+ml/securescan/data/processed/
+ml/securescan/artifacts/*.joblib
+ml/securescan/artifacts/*.pkl
+ml/securescan/artifacts/*.onnx
+ml/securescan/artifacts/*.bin
+ml/securescan/**/__pycache__/
+ml/securescan/.pytest_cache/
+ml/securescan/.venv/
+ml/securescan/data/

@@ -1,0 +1,191 @@
+{
+  "exact_duplicates": {
+    "conflicting_label_groups": 641,
+    "cross_split_duplicate_groups": 2403,
+    "duplicate_groups": 5664,
+    "rows_in_duplicate_groups": 17285
+  },
+  "label_mapping": {
+    "consistent": true,
+    "cross_tab": {
+      "0": {
+        "safe": 0,
+        "vulnerable": 19925
+      },
+      "1": {
+        "safe": 19925,
+        "vulnerable": 0
+      }
+    },
+    "inconsistent_rows": [],
+    "model": {
+      "0": "safe",
+      "1": "vulnerable"
+    },
+    "raw": {
+      "0": "vulnerable",
+      "1": "safe"
+    }
+  },
+  "languages": [
+    "C",
+    "C++",
+    "Go",
+    "Java",
+    "JavaScript",
+    "PHP",
+    "Python",
+    "Ruby",
+    "TypeScript"
+  ],
+  "near_duplicates": {
+    "candidate_pairs_examined": 1945005,
+    "capped_buckets": 2,
+    "cross_split_near_duplicate_pairs": 37310,
+    "limitations": "Heuristic, not an exhaustive semantic clone detector; capped buckets can undercount highly repetitive snippets.",
+    "max_bucket_size": 500,
+    "max_hamming_distance": 3,
+    "method": "64-bit structural SimHash over canonical token trigrams; four 16-bit LSH bands",
+    "near_duplicate_pairs": 117777
+  },
+  "processing": {
+    "conflicting_duplicate_groups_removed": 641,
+    "conflicting_duplicate_rows_removed": 3443,
+    "exact_duplicate_rows_removed": 8819,
+    "label_errors": [],
+    "processed_rows": {
+      "test": 2259,
+      "train": 22960,
+      "validation": 2369
+    },
+    "processed_total": 27588,
+    "unusable_rows": 0
+  },
+  "schema": {
+    "code": "Value('string')",
+    "cwe_id": "Value('string')",
+    "cwe_name": "Value('string')",
+    "description": "Value('string')",
+    "label": "Value('int64')",
+    "label_name": "Value('string')",
+    "programming_language": "Value('string')",
+    "url": "Value('string')"
+  },
+  "source": {
+    "dataset_id": "mcanoglu/defect-detection",
+    "fingerprints": {
+      "test": "9c90aa316d30fec5",
+      "train": "c5fa4e65413f4a57",
+      "validation": "c2edd49a2e1c75d6"
+    },
+    "license": "mit",
+    "license_files": [],
+    "revision": "6a433bbc30bea2d1053484c4bdfb75673044561a",
+    "url": "https://huggingface.co/datasets/mcanoglu/defect-detection"
+  },
+  "splits": {
+    "test": {
+      "blank_string_values": {},
+      "label_name_distribution": {
+        "safe": 2045,
+        "vulnerable": 1939
+      },
+      "missing_values": {
+        "code": 0,
+        "cwe_id": 0,
+        "cwe_name": 92,
+        "description": 92,
+        "label": 0,
+        "label_name": 0,
+        "programming_language": 0,
+        "url": 92
+      },
+      "numeric_label_distribution": {
+        "0": 1939,
+        "1": 2045
+      },
+      "programming_language_distribution": {
+        "C": 797,
+        "C++": 283,
+        "Go": 105,
+        "Java": 250,
+        "JavaScript": 1047,
+        "PHP": 932,
+        "Python": 280,
+        "Ruby": 220,
+        "TypeScript": 70
+      },
+      "rows": 3984,
+      "unusable_code_rows": 0
+    },
+    "train": {
+      "blank_string_values": {},
+      "label_name_distribution": {
+        "safe": 15934,
+        "vulnerable": 15948
+      },
+      "missing_values": {
+        "code": 0,
+        "cwe_id": 0,
+        "cwe_name": 790,
+        "description": 790,
+        "label": 0,
+        "label_name": 0,
+        "programming_language": 0,
+        "url": 790
+      },
+      "numeric_label_distribution": {
+        "0": 15948,
+        "1": 15934
+      },
+      "programming_language_distribution": {
+        "C": 6376,
+        "C++": 2261,
+        "Go": 845,
+        "Java": 2000,
+        "JavaScript": 8378,
+        "PHP": 7458,
+        "Python": 2242,
+        "Ruby": 1762,
+        "TypeScript": 560
+      },
+      "rows": 31882,
+      "unusable_code_rows": 0
+    },
+    "validation": {
+      "blank_string_values": {},
+      "label_name_distribution": {
+        "safe": 1946,
+        "vulnerable": 2038
+      },
+      "missing_values": {
+        "code": 0,
+        "cwe_id": 0,
+        "cwe_name": 86,
+        "description": 86,
+        "label": 0,
+        "label_name": 0,
+        "programming_language": 0,
+        "url": 86
+      },
+      "numeric_label_distribution": {
+        "0": 2038,
+        "1": 1946
+      },
+      "programming_language_distribution": {
+        "C": 797,
+        "C++": 282,
+        "Go": 106,
+        "Java": 250,
+        "JavaScript": 1047,
+        "PHP": 932,
+        "Python": 280,
+        "Ruby": 220,
+        "TypeScript": 70
+      },
+      "rows": 3984,
+      "unusable_code_rows": 0
+    }
+  },
+  "total_rows": 39850
+}
