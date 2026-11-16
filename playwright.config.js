@@ -1,5 +1,7 @@
 const { defineConfig } = require('@playwright/test');
 
+const browserChannel = process.env.PLAYWRIGHT_CHANNEL || (process.platform === 'win32' ? 'msedge' : undefined);
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -8,7 +10,7 @@ module.exports = defineConfig({
   reporter: [['list'], ['json', { outputFile: 'results/phase6/playwright-results.json' }]],
   use: {
     baseURL: 'http://127.0.0.1:3414',
-    channel: 'msedge',
+    ...(browserChannel ? { channel: browserChannel } : {}),
     headless: true,
     viewport: { width: 1440, height: 1000 },
     trace: 'retain-on-failure'

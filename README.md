@@ -102,12 +102,15 @@ CodePilot AI is fully optimized for **Vercel Serverless Functions** and static e
 
 ## Docker Deployment
 
-To run CodePilot AI in an isolated container:
+The Compose stack runs the non-root application and a private PostgreSQL 17 service with separate named volumes. Create a local secret file first:
 
 ```bash
-docker compose up --build
+cp .env.docker.example .env.docker
+# Fill CODEPILOT_SESSION_SECRET and POSTGRES_PASSWORD, then:
+docker compose --env-file .env.docker up --build -d
 ```
-The application will be accessible at `http://localhost:3000`.
+
+The application is bound to `http://127.0.0.1:3000`; PostgreSQL is not published to the host. Execution, queue, worker, and remote storage providers remain disabled. See [Docker setup](docs/DOCKER_SETUP.md), [deployment](docs/DEPLOYMENT.md), [environment variables](docs/ENVIRONMENT_VARIABLES.md), [testing](docs/TESTING.md), and [rollback](docs/ROLLBACK.md).
 
 ---
 

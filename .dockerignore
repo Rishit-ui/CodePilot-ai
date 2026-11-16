@@ -1,8 +1,17 @@
 .git
 .gitignore
+.github
+.vercel
 .env
 .env.*
 .data
+node_modules
 tests
 *.log
 docs
+results
+test-results
+playwright-report
+*.zip
+*.tar
+*.tar.gz

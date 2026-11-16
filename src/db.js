@@ -341,7 +341,7 @@ const SCHEMA_DDL = `
 
   CREATE TABLE IF NOT EXISTS rate_limit_buckets (
     bucket_key TEXT PRIMARY KEY,
-    window_start INTEGER NOT NULL,
+    window_start BIGINT NOT NULL,
     request_count INTEGER NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -532,6 +532,7 @@ class Store {
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(3, 'operational-monitoring', now());
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(4, 'durable-execution-queue', now());
       this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(5, 'phase3-outbox-artifacts-and-workflows', now());
+      this.sqlite.prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)').run(6, 'postgres-rate-limit-epoch-bigint', now());
     }
   }
 
@@ -540,6 +541,7 @@ class Store {
       const client = await this.pool.connect();
       try {
         await client.query('BEGIN');
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('codepilot-schema-migrations'))");
         await client.query(SCHEMA_DDL);
         await client.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL');
         await client.query('ALTER TABLE execution_jobs ADD COLUMN IF NOT EXISTS revision_id TEXT REFERENCES revisions(id) ON DELETE SET NULL');
@@ -561,6 +563,17 @@ class Store {
         await client.query("INSERT INTO schema_migrations VALUES (3, 'operational-monitoring', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query("INSERT INTO schema_migrations VALUES (4, 'durable-execution-queue', $1) ON CONFLICT (version) DO NOTHING", [now()]);
         await client.query("INSERT INTO schema_migrations VALUES (5, 'phase3-outbox-artifacts-and-workflows', $1) ON CONFLICT (version) DO NOTHING", [now()]);
+        const migration6 = await client.query('SELECT version FROM schema_migrations WHERE version=6');
+        if (migration6.rowCount === 0) {
+          const rateLimitColumn = await client.query(`
+            SELECT data_type FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = 'rate_limit_buckets' AND column_name = 'window_start'
+          `);
+          if (rateLimitColumn.rows[0]?.data_type !== 'bigint') {
+            await client.query('ALTER TABLE rate_limit_buckets ALTER COLUMN window_start TYPE BIGINT USING window_start::bigint');
+          }
+          await client.query("INSERT INTO schema_migrations VALUES (6, 'postgres-rate-limit-epoch-bigint', $1)", [now()]);
+        }
         await client.query('COMMIT');
       } catch (err) {
         await client.query('ROLLBACK').catch(() => {});

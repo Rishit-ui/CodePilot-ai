@@ -1661,6 +1661,37 @@ if (require.main === module) {
       })
     );
   });
+
+  let shuttingDown = false;
+  const shutdown = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(JSON.stringify({ level: 'info', event: 'server.stopping', signal }));
+
+    const deadline = setTimeout(() => {
+      console.error(JSON.stringify({ level: 'error', event: 'server.shutdown_timeout' }));
+      process.exit(1);
+    }, 10_000);
+    deadline.unref();
+
+    try {
+      await new Promise((resolve, reject) => {
+        app.server.close((error) => (error ? reject(error) : resolve()));
+        app.server.closeIdleConnections?.();
+      });
+      await app.store.close();
+      clearTimeout(deadline);
+      console.log(JSON.stringify({ level: 'info', event: 'server.stopped' }));
+      process.exit(0);
+    } catch (error) {
+      clearTimeout(deadline);
+      console.error(JSON.stringify({ level: 'error', event: 'server.shutdown_failed', message: String(error.message || error).slice(0, 500) }));
+      process.exit(1);
+    }
+  };
+
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
 module.exports = serverlessHandler;

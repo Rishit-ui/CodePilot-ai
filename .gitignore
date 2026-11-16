@@ -4,6 +4,8 @@ node_modules/
 .env.*
 !.env.example
 !.env.staging.example
+!.env.docker.example
+.env.docker
 coverage/
 npm-debug.log*
 test-results/

@@ -157,3 +157,28 @@ test('navigation, command palette, theme, and responsive sidebar remain usable',
   await expect(page.locator('#main-view')).toBeVisible();
 });
 
+test('real public GitHub import completes through the browser workflow', async ({ page }) => {
+  test.skip(process.env.TEST_GITHUB_IMPORT !== '1', 'Set TEST_GITHUB_IMPORT=1 for an authorized outbound GitHub archive test.');
+  await openProject(page);
+  await page.getByRole('button', { name: 'Project Overview', exact: true }).click();
+  await page.locator('#tab-btn-github').click();
+  await page.locator('#github-repo-input').fill('https://github.com/Rishit-ui/eggVision');
+  const responsePromise = page.waitForResponse((response) => /\/api\/projects\/[^/]+\/import-url$/.test(new URL(response.url()).pathname), { timeout: 120_000 });
+  await page.locator('#github-import-form button[type="submit"]').click();
+  const response = await responsePromise;
+  expect([200, 201], await response.text()).toContain(response.status());
+  await expect(page.locator('#import-feedback')).toContainText('successfully ingested', { timeout: 120_000 });
+  await page.getByRole('button', { name: 'Repository Explorer', exact: true }).click();
+  await expect(page.locator('#file-list-container')).not.toBeEmpty();
+});
+
+test('sign out removes the session and protected APIs reject the user', async ({ page }) => {
+  await openProject(page);
+  await page.locator('#btn-sign-out').click();
+  await expect(page.locator('#auth-gate')).toBeVisible();
+  await expect(page.locator('#auth-feedback')).toContainText('Signed out');
+  expect(await page.evaluate(() => localStorage.getItem('codepilot_session'))).toBeNull();
+  const protectedResponse = await page.request.get('/api/projects');
+  expect(protectedResponse.status()).toBe(401);
+});
+
