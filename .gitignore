@@ -17,6 +17,7 @@ ml/securescan/.cache/
 ml/securescan/data/raw/
 ml/securescan/data/processed/
 ml/securescan/artifacts/*.joblib
+ml/securescan/artifacts/**/*.joblib
 ml/securescan/artifacts/*.pkl
 ml/securescan/artifacts/*.onnx
 ml/securescan/artifacts/*.bin

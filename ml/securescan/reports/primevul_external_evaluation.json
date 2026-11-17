@@ -1,0 +1,340 @@
+{
+  "contamination": {
+    "capped_lsh_buckets": 4,
+    "exact_normalized_overlap_rows": 187,
+    "metadata_overlap_assessment": "Unavailable: the Phase 1 source has no project/repository/commit/file identity.",
+    "phase1_training_rows_compared": 6817,
+    "primevul_test_rows_compared": 24788,
+    "simhash_cross_candidates": 1308304,
+    "simhash_distance_le_3_pairs_inspected": 88638,
+    "total_excluded_rows": 238,
+    "verified_high_confidence_near_overlap_rows": 234
+  },
+  "dataset_audit": {
+    "cross_standard_split_exact_normalized_duplicates": 0,
+    "primevul_test.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 72,
+      "label_counts": {
+        "0": 24239,
+        "1": 549
+      },
+      "missing_or_blank": {
+        "cve_desc": 15,
+        "file_hash": 5910
+      },
+      "projects": 220,
+      "rows": 24788,
+      "sha256": "c9dcab5ee897da36eccf0dbb3b510de2dab66a7dec681af29a7a28c8a53331c4",
+      "size_bytes": 66064689
+    },
+    "primevul_test_paired.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 62,
+      "label_counts": {
+        "0": 435,
+        "1": 435
+      },
+      "missing_or_blank": {
+        "file_hash": 167
+      },
+      "projects": 143,
+      "rows": 870,
+      "sha256": "384758c25142b640f1768bb0d334c43f315c580022ae94973c66e77128fb3821",
+      "size_bytes": 6033298
+    },
+    "primevul_train.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 123,
+      "label_counts": {
+        "0": 170935,
+        "1": 4862
+      },
+      "missing_or_blank": {
+        "commit_message": 46,
+        "cve_desc": 86,
+        "file_hash": 55260
+      },
+      "projects": 631,
+      "rows": 175797,
+      "sha256": "5cadee7f3383124cc26ef6e67c8dd76c321e5461c94bef399a2f03a28767e6f5",
+      "size_bytes": 470918175
+    },
+    "primevul_train_paired.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 112,
+      "label_counts": {
+        "0": 3789,
+        "1": 3789
+      },
+      "missing_or_blank": {
+        "commit_message": 6,
+        "file_hash": 2705
+      },
+      "projects": 545,
+      "rows": 7578,
+      "sha256": "1b2853c09ac10b5b60d8e995cbf4461b65414dcf90e0cc5086b788caeae1aaaa",
+      "size_bytes": 52560540
+    },
+    "primevul_valid.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 74,
+      "label_counts": {
+        "0": 23355,
+        "1": 593
+      },
+      "missing_or_blank": {
+        "file_hash": 4299
+      },
+      "projects": 217,
+      "rows": 23948,
+      "sha256": "7f0b4d05b063c20d5cf57478128538b8c0c36354e8def7f2d4febe6773b9dc7c",
+      "size_bytes": 63564497
+    },
+    "primevul_valid_paired.jsonl": {
+      "columns": [
+        "idx",
+        "project",
+        "commit_id",
+        "project_url",
+        "commit_url",
+        "commit_message",
+        "target",
+        "func",
+        "func_hash",
+        "file_name",
+        "file_hash",
+        "cwe",
+        "cve",
+        "cve_desc",
+        "nvd_url"
+      ],
+      "cwes": 63,
+      "label_counts": {
+        "0": 480,
+        "1": 480
+      },
+      "missing_or_blank": {
+        "file_hash": 177
+      },
+      "projects": 176,
+      "rows": 960,
+      "sha256": "14516b7168e8d158e1e9fbeb163b655dd704eafd82c734e86cddc84c564b4285",
+      "size_bytes": 5655335
+    }
+  },
+  "evaluation": {
+    "class_counts": {
+      "0": 24087,
+      "1": 463
+    },
+    "fixed_threshold": 0.5,
+    "metrics": {
+      "accuracy": 0.46289205702647657,
+      "balanced_accuracy": 0.43395696360233393,
+      "classification_report": {
+        "accuracy": 0.46289205702647657,
+        "macro avg": {
+          "f1-score": 0.3282812751596523,
+          "precision": 0.4950897947353193,
+          "recall": 0.43395696360233393,
+          "support": 24550.0
+        },
+        "safe": {
+          "f1-score": 0.6289814293753517,
+          "precision": 0.9759015105212608,
+          "recall": 0.4640262382197866,
+          "support": 24087.0
+        },
+        "vulnerable": {
+          "f1-score": 0.027581120943952802,
+          "precision": 0.01427807894937772,
+          "recall": 0.4038876889848812,
+          "support": 463.0
+        },
+        "weighted avg": {
+          "f1-score": 0.617639338018784,
+          "precision": 0.957765801811779,
+          "recall": 0.46289205702647657,
+          "support": 24550.0
+        }
+      },
+      "confidence_intervals_95_percent_stratified_bootstrap_500": {
+        "accuracy": [
+          0.4574124236252546,
+          0.4695763747454175
+        ],
+        "balanced_accuracy": [
+          0.4126472546288961,
+          0.45702176756485957
+        ],
+        "f1_vulnerable": [
+          0.024686345108432206,
+          0.03067168807668417
+        ],
+        "matthews_correlation_coefficient": [
+          -0.04761648684253643,
+          -0.023445516071565246
+        ],
+        "pr_auc": [
+          0.015467502075692911,
+          0.019168748782285375
+        ],
+        "precision_vulnerable": [
+          0.012779414185028147,
+          0.01587929305525782
+        ],
+        "recall_vulnerable": [
+          0.36069114470842334,
+          0.45037796976241895
+        ],
+        "roc_auc": [
+          0.38321373111922125,
+          0.44412523545631605
+        ]
+      },
+      "confusion_matrix": [
+        [
+          11177,
+          12910
+        ],
+        [
+          276,
+          187
+        ]
+      ],
+      "f1_vulnerable": 0.027581120943952802,
+      "matthews_correlation_coefficient": -0.03601582235714307,
+      "pr_auc": 0.016951983957738552,
+      "precision_vulnerable": 0.01427807894937772,
+      "ranking": {
+        "100": {
+          "k_used": 100,
+          "precision_at_k": 0.01,
+          "recall_at_k": 0.0021598272138228943,
+          "vulnerable_found": 1
+        },
+        "1000": {
+          "k_used": 1000,
+          "precision_at_k": 0.019,
+          "recall_at_k": 0.04103671706263499,
+          "vulnerable_found": 19
+        },
+        "463": {
+          "k_used": 463,
+          "precision_at_k": 0.023758099352051837,
+          "recall_at_k": 0.023758099352051837,
+          "vulnerable_found": 11
+        },
+        "500": {
+          "k_used": 500,
+          "precision_at_k": 0.024,
+          "recall_at_k": 0.02591792656587473,
+          "vulnerable_found": 12
+        }
+      },
+      "recall_vulnerable": 0.4038876889848812,
+      "roc_auc": 0.4155455731432879
+    },
+    "paired": {
+      "both_classified_correctly_rate": 0.014619883040935672,
+      "eligible_pairs": 342,
+      "patched_benign_rate": 0.564327485380117,
+      "vulnerable_above_safe_rate": 0.6549707602339181,
+      "vulnerable_detected_rate": 0.4444444444444444
+    },
+    "rows_after_overlap_exclusion": 24550
+  },
+  "label_mapping": {
+    "0": "benign",
+    "1": "vulnerable"
+  },
+  "language_scope": "C/C++ as defined by PrimeVul",
+  "provenance": {
+    "official_drive_folder_id": "1cznxGme5o6A_9tT8T47JUh3MPEpRYiKK",
+    "official_repository": "https://github.com/DLVulDet/PrimeVul",
+    "release": "PrimeVul-v0.1",
+    "repository_license": "MIT",
+    "repository_revision": "6f54687c84947b1d17486495440b37030d147289"
+  }
+}

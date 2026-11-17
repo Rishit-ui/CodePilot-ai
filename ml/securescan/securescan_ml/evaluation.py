@@ -8,9 +8,12 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
     classification_report,
     confusion_matrix,
     f1_score,
+    matthews_corrcoef,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -30,6 +33,8 @@ def model_scores(model: Any, features: Any) -> np.ndarray | None:
 def classification_metrics(y_true: Any, y_pred: Any, scores: Any | None = None) -> dict[str, Any]:
     metrics: dict[str, Any] = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
+        "matthews_correlation_coefficient": float(matthews_corrcoef(y_true, y_pred)),
         "precision_vulnerable": float(precision_score(y_true, y_pred, pos_label=1, zero_division=0)),
         "recall_vulnerable": float(recall_score(y_true, y_pred, pos_label=1, zero_division=0)),
         "f1_vulnerable": float(f1_score(y_true, y_pred, pos_label=1, zero_division=0)),
@@ -43,7 +48,9 @@ def classification_metrics(y_true: Any, y_pred: Any, scores: Any | None = None) 
             zero_division=0,
         ),
     }
-    metrics["roc_auc"] = float(roc_auc_score(y_true, scores)) if scores is not None and len(set(y_true)) == 2 else None
+    has_both_classes = len(set(y_true)) == 2
+    metrics["roc_auc"] = float(roc_auc_score(y_true, scores)) if scores is not None and has_both_classes else None
+    metrics["pr_auc"] = float(average_precision_score(y_true, scores)) if scores is not None and has_both_classes else None
     return metrics
 
 

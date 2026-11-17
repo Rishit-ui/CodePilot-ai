@@ -8,6 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 from securescan_ml.predict import load_artifacts, predict_code, sha256_file
+from securescan_ml.evaluation import classification_metrics
 from securescan_ml.train import _candidate_models
 
 
@@ -87,3 +88,11 @@ def test_trained_phase1_artifacts_load_and_predict_when_present():
     prediction = predict_code("query = 'SELECT * FROM users WHERE id=' + user_input;", model, vectorizer, metadata)
     assert prediction["model"] == metadata["selected_model"]
     assert prediction["label"] in {"safe", "vulnerable"}
+
+
+def test_extended_imbalanced_metrics_are_truthful():
+    metrics = classification_metrics([0, 0, 0, 1], [0, 0, 0, 0], [0.1, 0.2, 0.3, 0.4])
+    assert metrics["accuracy"] == 0.75
+    assert metrics["balanced_accuracy"] == 0.5
+    assert metrics["matthews_correlation_coefficient"] == 0.0
+    assert metrics["pr_auc"] == 1.0

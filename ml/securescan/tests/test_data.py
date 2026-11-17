@@ -4,6 +4,7 @@ import pytest
 from datasets import Dataset, DatasetDict
 
 from securescan_ml import data
+from securescan_ml.leakage import grouped_partitions, investigate_and_group
 
 
 def row(code, label, label_name, language="Python"):
@@ -92,3 +93,25 @@ def test_simhash_is_deterministic_and_identifier_insensitive():
     second = data.simhash64("function check(value) { return sanitize(value); }")
     assert first == data.simhash64("function check(user) { return sanitize(user); }")
     assert (first ^ second).bit_count() <= 3
+
+
+def test_verified_clone_groups_never_cross_controlled_partitions():
+    rows = []
+    for index in range(100):
+        target = index % 2
+        code = f"int function_{index}(void) {{ return {index}; }}"
+        rows.append({
+            "code": code,
+            "code_sha256": f"hash-{index}",
+            "source_split": ("train", "validation", "test")[index % 3],
+            "source_index": index,
+            "programming_language": "C" if index % 4 else "C++",
+            "target": target,
+        })
+    frame = __import__("pandas").DataFrame(rows)
+    audited = investigate_and_group(frame)
+    partitions = grouped_partitions(audited.frame)
+    groups = {name: set(partition["clone_group"]) for name, partition in partitions.items()}
+    assert groups["train"].isdisjoint(groups["validation"])
+    assert groups["train"].isdisjoint(groups["test"])
+    assert groups["validation"].isdisjoint(groups["test"])

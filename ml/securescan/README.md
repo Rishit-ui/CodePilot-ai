@@ -103,3 +103,23 @@ The complete training command was run twice after serialization canonicalization
 - The dataset is balanced and curated; real repository prevalence and error costs will differ.
 
 Recommended next step: independently validate on a project-separated, provenance-reviewed external corpus and establish per-language thresholds/calibration before considering Phase 2 API integration.
+
+## Phase 1.5 leakage and external validation
+
+Phase 1.5 preserves the original results above and adds a conservative clone-grouped experiment plus an official PrimeVul v0.1 external-corpus evaluation. The source dataset has no repository, project, commit, or file identity, so a true project-held-out split cannot be constructed. Verified lexical/type-2 clone connected components are kept entirely within one partition instead.
+
+Run the local leakage-controlled experiment after the Phase 1 processed data exists:
+
+```powershell
+.\.venv\Scripts\python.exe -m securescan_ml.phase15 --root .
+```
+
+PrimeVul is acquired only from the v0.1 Google Drive folder linked by the [official repository](https://github.com/DLVulDet/PrimeVul). Its six JSONL files belong under ignored `data/external/primevul-v0.1/`. With those files present, run:
+
+```powershell
+.\.venv\Scripts\python.exe -m securescan_ml.external --root .
+```
+
+The external evaluator verifies every local release file by SHA-256, uses the original Phase 1 Logistic Regression and vectorizer, fixes the decision threshold at 0.5, excludes detected exact/high-confidence near overlaps, and never tunes on PrimeVul. See `reports/near_duplicate_investigation.md`, `reports/leakage_controlled_evaluation.md`, `reports/primevul_external_evaluation.md`, and `reports/phase_1_5_summary.md`.
+
+The PrimeVul result is poor: after detected-overlap exclusions, vulnerable-class F1 is 0.0276 and PR-AUC is 0.0170. The model is not suitable for API integration or security enforcement. Because the Phase 1 corpus lacks project provenance, the PrimeVul result is described as an external-corpus evaluation—not a contamination-proof independent benchmark.
