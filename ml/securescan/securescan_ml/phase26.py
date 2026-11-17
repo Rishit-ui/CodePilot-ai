@@ -155,6 +155,13 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
             )
             candidates += 1
             if len(candidate_rows) >= 500:
+                # Candidate rows reference all_methods. Flush any smaller
+                # metadata batch first so the derived-store FK is satisfied.
+                _insert_batches(
+                    derived,
+                    "INSERT INTO all_methods VALUES(?,?,?,?,?,?,?)",
+                    method_rows,
+                )
                 _insert_batches(
                     derived,
                     "INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
