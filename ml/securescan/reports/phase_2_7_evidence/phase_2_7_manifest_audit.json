@@ -1,0 +1,77 @@
+{
+  "all_rows_have_repository_and_commit": true,
+  "all_rows_have_supported_label_and_language": true,
+  "commits": 411,
+  "components_crossing_splits": 0,
+  "conflicting_duplicate_rows_included": 0,
+  "deterministic_seed_42_reproduction": true,
+  "groups": 217,
+  "licence_evidence_exact_revision_rows": 1299,
+  "licence_evidence_other_revision_rows": 926,
+  "manifest_sha256": "7caac791241dc6e01525e31cd8c8b314831adf07fb7114951007bb65e9a0ed86",
+  "non_permissive_phase26_rows_included": 0,
+  "overall_group_size": {
+    "max": 109,
+    "median": 4,
+    "min": 1,
+    "p90": 25
+  },
+  "repositories": 219,
+  "rows": 2225,
+  "split_distribution": {
+    "test": {
+      "group_size": {
+        "max": 109,
+        "median": 4.5,
+        "min": 1,
+        "p90": 21
+      },
+      "groups": 30,
+      "labels": {
+        "fixed_post_fix": 196,
+        "vulnerable_pre_fix": 138
+      },
+      "languages": {
+        "C": 224,
+        "C++": 110
+      },
+      "rows": 334
+    },
+    "train": {
+      "group_size": {
+        "max": 71,
+        "median": 4,
+        "min": 1,
+        "p90": 25
+      },
+      "groups": 155,
+      "labels": {
+        "fixed_post_fix": 912,
+        "vulnerable_pre_fix": 645
+      },
+      "languages": {
+        "C": 990,
+        "C++": 567
+      },
+      "rows": 1557
+    },
+    "validation": {
+      "group_size": {
+        "max": 67,
+        "median": 4.5,
+        "min": 1,
+        "p90": 28
+      },
+      "groups": 32,
+      "labels": {
+        "fixed_post_fix": 241,
+        "vulnerable_pre_fix": 93
+      },
+      "languages": {
+        "C": 167,
+        "C++": 167
+      },
+      "rows": 334
+    }
+  }
+}

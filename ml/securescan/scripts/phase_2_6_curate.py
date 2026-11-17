@@ -11,6 +11,8 @@ import sqlite3
 import subprocess
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from securescan_ml.curation import DiskGuard
 from securescan_ml.phase26 import (
     audit_licenses,
@@ -94,7 +96,7 @@ def write_reports(db_path: Path, output_dir: Path, summary: dict[str, object]) -
     reports: dict[str, str] = {}
     reports[REPORT_NAMES[0]] = f"""# SecureScan Phase 2.6 Count Reconciliation
 
-## Status: PASS — discrepancy structurally explained without forcing counts
+## Status: REQUIRES_REVIEW — physical factor-of-two observed; semantic convention unresolved
 
 The restored database contains **{total:,} method-version rows**: `True`={int(before.get('True', 0)):,}
 and `False`={int(before.get('False', 0)):,}. Grouping by
@@ -115,11 +117,13 @@ its own logical record yields **{logical:,} logical groups**.
 - Rows without a usable signature or name: **{no_pair_key:,}**.
 
 The published 138,974 value equals exactly half of {total:,}, but actual
-before/after cardinalities are not globally one-to-one. Therefore the release
-number is consistent with a release-level logical-function convention, not the
-physical `method_change` row count; it cannot be reproduced simply by selecting
-one `before_change` value. The database evidence does not justify forcing a
-one-to-one pairing for unmatched or ambiguous records.
+before/after cardinalities are not globally one-to-one and the observed logical
+group count is {logical:,}. The database therefore explains the arithmetic
+factor of two, but does **not** reproduce the published semantic counting
+method. It cannot be reproduced simply by selecting one `before_change` value
+or by treating every row as a complete pair. Author methodology clarification
+is required; the evidence does not justify forcing unmatched or ambiguous rows
+into one-to-one pairs.
 """
 
     reports[REPORT_NAMES[1]] = f"""# SecureScan Phase 2.6 Duplicate Audit
@@ -131,6 +135,8 @@ one-to-one pairing for unmatched or ambiguous records.
 - Conflicting-label groups: **{conflict_groups:,}**.
 - Cross-repository exact groups: **{cross_repo:,}**.
 - Conflict groups automatically majority-voted: **0**.
+- A–F classification counts: `{json.dumps(summary['duplicate_categories'], sort_keys=True)}`.
+- Near-duplicate edge counts: `{json.dumps(summary['clone_edges'], sort_keys=True)}`.
 
 Every conflicting member is retained in
 `phase_2_6_conflicting_duplicates.csv/json` with method, repository, commit,
@@ -173,7 +179,11 @@ URLs at a relevant fixing commit. Evidence records contain the path, final URL,
 SHA-256, verification date, classification, inclusion status and reason. No raw
 licence or source text is redistributed. Copyleft, custom, missing, ambiguous,
 unsupported-host and unreachable evidence remains quarantined pending legal or
-manual review. Model-weight obligations are not inferred by this inventory.
+manual review. Historical licence changes, NOTICE/copyright contents, and
+provider-authoritative provenance have not been exhaustively preserved; the
+inventory records paths, revision identifiers, final URLs, and hashes rather
+than redistributing those texts. Model-weight obligations are not inferred by
+this inventory.
 """
 
     reports[REPORT_NAMES[4]] = f"""# SecureScan Phase 2.6 Label Validation
@@ -187,6 +197,8 @@ evidence is preserved in the curation store so additions, deletions and renames
 can be distinguished rather than paired blindly.
 
 Change-type/label counts: `{json.dumps(summary['candidate_change_labels'], sort_keys=True)}`.
+
+C/C++ signature/name pair groups: `{json.dumps(summary['candidate_pair_classifications'], sort_keys=True)}`.
 
 Empty/tiny candidates: **{int(summary['empty_or_tiny_candidates']):,}**. Exact
 one-to-one pairs are supported by a shared file change and exact signature/name;
@@ -210,8 +222,10 @@ quarantined. Commit messages were not used to infer labels.
 Components connect repository identity, repository relationships, exact and
 normalized duplicates, canonical/verified near clones, before/after pairs,
 common commits and CVEs. The manifest assigns whole components only. Automated
-tests verify that no component or pair crosses partitions. Ratios are reported
-as achieved; components are never broken to improve them.
+validation query results: `{json.dumps(summary['leakage_checks'], sort_keys=True)}`.
+Every value is zero, so no component, repository, commit, pair key, fingerprint,
+or verified clone edge crosses partitions. Ratios are reported as achieved;
+components are never broken to improve them.
 """
 
     reports[REPORT_NAMES[6]] = f"""# SecureScan Phase 2.6 Pilot Cohort
@@ -221,6 +235,13 @@ as achieved; components are never broken to improve them.
 - Approved repositories: **{approved_repos:,}**.
 - Approved candidate rows: **{approved_rows:,}**.
 - Quarantined rows: **{int(summary['quarantined_rows']):,}**.
+- Languages: `{json.dumps(summary['pilot']['languages'], sort_keys=True)}`.
+- Labels (`True`=vulnerable, `False`=fixed): `{json.dumps(summary['pilot']['labels'], sort_keys=True)}`.
+- Unique approved repository identities: **{int(summary['pilot']['repositories']):,}**.
+- Leakage-connected repository groups: **{int(summary['pilot']['repository_groups']):,}**.
+- Unique fixing commits: **{int(summary['pilot']['commits']):,}**.
+- Candidate/CWE assignments: `{json.dumps(summary['pilot']['cwe_candidate_assignments'], sort_keys=True)}`.
+- Candidates with no mapped CWE: **{int(summary['pilot']['candidates_without_cwe']):,}**.
 
 Admission requires a clear permissive licence at the checked fixing revision,
 unambiguous repository mapping, supported label and absence from an unresolved
@@ -237,7 +258,8 @@ was trained.
 
 | Gate | Status |
 |---|---|
-| Official count discrepancy explained | PASS |
+| Official physical row factor-of-two reconciled | PASS |
+| Official semantic counting convention reproduced | REQUIRES_REVIEW |
 | Conflicting exact duplicates inventoried and quarantined | PASS |
 | Repository identity/clone graph built | PASS, provider metadata gaps require review |
 | Licence inventory attempted for every repository | PASS |
@@ -288,7 +310,7 @@ def main() -> int:
         elif stage == "export":
             result = {name: str(path) for name, path in export_evidence(db_path, evidence_dir).items()}
         else:
-            summary = collect_summary(db_path)
+            summary = collect_summary(db_path, args.raw_database)
             summary_path = evidence_dir / "phase_2_6_summary.json"
             summary_path.parent.mkdir(parents=True, exist_ok=True)
             summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
@@ -303,7 +325,10 @@ def main() -> int:
         repo_evidence = args.repo_reports / "phase_2_6_evidence"
         repo_evidence.mkdir(parents=True, exist_ok=True)
         for path in evidence_dir.iterdir():
-            if path.is_file():
+            # Keep full evidence on the mandated D: workspace. Copy only small,
+            # reviewable manifests into Git working space; large quarantine
+            # inventories are dataset-like artifacts and remain external.
+            if path.is_file() and path.stat().st_size <= 5 * 1024 * 1024:
                 shutil.copy2(path, repo_evidence / path.name)
     return 0
 

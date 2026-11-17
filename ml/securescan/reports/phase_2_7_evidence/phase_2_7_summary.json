@@ -1,0 +1,170 @@
+{
+  "cohort_changed": false,
+  "cohort_description": "proposed_candidate_cohort",
+  "cohort_rows": 2225,
+  "count_evidence": {
+    "ambiguous_repository_candidate_rows": 0,
+    "before_change_rows": {
+      "False": 151349,
+      "True": 126599
+    },
+    "c_cpp_pair_cardinality": {
+      "one_to_one": 6931,
+      "unmatched_after": 4830,
+      "unmatched_before": 1368
+    },
+    "conclusion": "official_semantic_count_not_reproduced",
+    "exact_duplicate_groups": 553,
+    "multiple_cve_candidate_rows": 1370,
+    "official_published_functions": 138974,
+    "phase26_logical_groups": 198985,
+    "phase26_pair_cardinality": [
+      {
+        "after_rows": 78963,
+        "before_rows": 78963,
+        "classification": "one_to_one",
+        "groups": 78963
+      },
+      {
+        "after_rows": 72386,
+        "before_rows": 0,
+        "classification": "unmatched_after",
+        "groups": 72386
+      },
+      {
+        "after_rows": 0,
+        "before_rows": 47636,
+        "classification": "unmatched_before",
+        "groups": 47636
+      }
+    ],
+    "physical_method_rows": 277948,
+    "queries": {
+      "before_change_rows": "SELECT CAST(before_change AS TEXT) AS before_change, COUNT(*) AS rows FROM method_change GROUP BY CAST(before_change AS TEXT) ORDER BY before_change;",
+      "c_cpp_pair_cardinality": "SELECT classification, COUNT(*) AS groups FROM (SELECT CASE WHEN SUM(c.before_change='True')=1 AND SUM(c.before_change='False')=1 THEN 'one_to_one' WHEN SUM(c.before_change='True')=0 THEN 'unmatched_after' WHEN SUM(c.before_change='False')=0 THEN 'unmatched_before' WHEN SUM(c.before_change='True')=1 THEN 'one_to_many' WHEN SUM(c.before_change='False')=1 THEN 'many_to_one' ELSE 'many_to_many' END classification FROM candidates c WHERE COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,'')) IS NOT NULL GROUP BY c.file_change_id,COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,''))) GROUP BY classification ORDER BY classification;",
+      "phase26_logical_groups": "SELECT COUNT(*) FROM (SELECT file_change_id, CASE WHEN LOWER(TRIM(COALESCE(signature,''))) NOT IN ('','nan','none') THEN TRIM(signature) WHEN LOWER(TRIM(COALESCE(name,''))) NOT IN ('','nan','none') THEN TRIM(name) ELSE '__unkeyed__:' || method_change_id END AS logical_key FROM method_change GROUP BY file_change_id, logical_key);",
+      "phase26_pair_cardinality": "WITH grouped AS (SELECT file_change_id, CASE WHEN LOWER(TRIM(COALESCE(signature,''))) NOT IN ('','nan','none') THEN TRIM(signature) WHEN LOWER(TRIM(COALESCE(name,''))) NOT IN ('','nan','none') THEN TRIM(name) ELSE '__unkeyed__:' || method_change_id END AS logical_key, SUM(CAST(before_change AS TEXT)='True') AS before_rows, SUM(CAST(before_change AS TEXT)='False') AS after_rows FROM method_change GROUP BY file_change_id, logical_key) SELECT CASE WHEN before_rows=1 AND after_rows=1 THEN 'one_to_one' WHEN before_rows=0 THEN 'unmatched_after' WHEN after_rows=0 THEN 'unmatched_before' WHEN before_rows=1 THEN 'one_to_many' WHEN after_rows=1 THEN 'many_to_one' ELSE 'many_to_many' END AS classification, COUNT(*) AS groups, SUM(before_rows) AS before_rows, SUM(after_rows) AS after_rows FROM grouped GROUP BY classification ORDER BY classification;",
+      "physical_method_rows": "SELECT COUNT(*) FROM method_change;"
+    }
+  },
+  "generated_utc": "2026-11-17T18:15:28.157696+00:00",
+  "manifest": {
+    "all_rows_have_repository_and_commit": true,
+    "all_rows_have_supported_label_and_language": true,
+    "commits": 411,
+    "components_crossing_splits": 0,
+    "conflicting_duplicate_rows_included": 0,
+    "deterministic_seed_42_reproduction": true,
+    "groups": 217,
+    "licence_evidence_exact_revision_rows": 1299,
+    "licence_evidence_other_revision_rows": 926,
+    "manifest_sha256": "7caac791241dc6e01525e31cd8c8b314831adf07fb7114951007bb65e9a0ed86",
+    "non_permissive_phase26_rows_included": 0,
+    "overall_group_size": {
+      "max": 109,
+      "median": 4,
+      "min": 1,
+      "p90": 25
+    },
+    "repositories": 219,
+    "rows": 2225,
+    "split_distribution": {
+      "test": {
+        "group_size": {
+          "max": 109,
+          "median": 4.5,
+          "min": 1,
+          "p90": 21
+        },
+        "groups": 30,
+        "labels": {
+          "fixed_post_fix": 196,
+          "vulnerable_pre_fix": 138
+        },
+        "languages": {
+          "C": 224,
+          "C++": 110
+        },
+        "rows": 334
+      },
+      "train": {
+        "group_size": {
+          "max": 71,
+          "median": 4,
+          "min": 1,
+          "p90": 25
+        },
+        "groups": 155,
+        "labels": {
+          "fixed_post_fix": 912,
+          "vulnerable_pre_fix": 645
+        },
+        "languages": {
+          "C": 990,
+          "C++": 567
+        },
+        "rows": 1557
+      },
+      "validation": {
+        "group_size": {
+          "max": 67,
+          "median": 4.5,
+          "min": 1,
+          "p90": 28
+        },
+        "groups": 32,
+        "labels": {
+          "fixed_post_fix": 241,
+          "vulnerable_pre_fix": 93
+        },
+        "languages": {
+          "C": 167,
+          "C++": 167
+        },
+        "rows": 334
+      }
+    }
+  },
+  "overall_status": "BLOCKED",
+  "provenance": {
+    "analysis_revision": "UNRESOLVED_DIRTY_WORKTREE",
+    "analysis_revision_explanation": "Derived stages and final reports ran while HEAD advanced and relevant files had uncommitted changes; the curation database stores only the extraction HEAD, not a working-tree digest per stage.",
+    "branch": "feature/securescan-ml",
+    "changed_files": [
+      {
+        "impact": "extraction execution: foreign-key batch ordering; successful extraction source differs from recorded clean commit",
+        "path": "ml/securescan/securescan_ml/phase26.py",
+        "relevant": true,
+        "status": "M"
+      }
+    ],
+    "current_revision": "7baaaa5b2ce5b6f5024b1dc80f4b163a202625d4",
+    "current_revision_exists": true,
+    "extraction_revision": "89387d0f88c4df0b0212b1f14c388a729c9d73e8",
+    "extraction_revision_exists": true,
+    "recent_history": "7baaaa5b2ce5b6f5024b1dc80f4b163a202625d4 2026-11-17T22:55:15+05:30 updated\n89387d0f88c4df0b0212b1f14c388a729c9d73e8 2026-11-17T22:52:37+05:30 updated\nf7441ebbf9b52b91b9d6fc20626d9455714db976 2026-11-17T22:51:37+05:30 updated\n6bf2fd0cfb02bd519a9c5a6395ee5ab39285cf0d 2026-11-17T22:50:56+05:30 updated\n5e897b15bbdbdcf1697dd127a2c127e28b526b7b 2026-11-17T22:49:58+05:30 updated\nec5896e05c41268f273ac23d1caac651052117ec 2026-11-17T22:48:52+05:30 updated\n83f947def73442043329593445265cd1f730d386 2026-11-17T22:47:43+05:30 updated\n5913d07828c1dadff72487ff8ffecd77857ceeeb 2026-11-17T22:45:33+05:30 updated\n221e63caf1bb0707ac52c55403bd328e87bd92bc 2026-11-17T15:56:33+05:30 updated\n05e70e5fc824f87a14c48bad5b4aef17333076f7 2026-11-17T12:34:15+05:30 updated\n7ecfb2ad7b9886636abbdba80409a49d7dac24a7 2026-11-17T00:04:16+05:30 updated\nf629c25c29b33e5adf427d0e91bd919f13363253 2026-11-16T23:14:31+05:30 Merge pull request #1 from Rishit-ui/feature/autonomous-docker-deployment",
+    "reflog": "7baaaa5 HEAD@{2026-11-17T22:55:15+05:30}: commit: updated\n89387d0 HEAD@{2026-11-17T22:52:37+05:30}: commit: updated\nf7441eb HEAD@{2026-11-17T22:51:37+05:30}: commit: updated\n6bf2fd0 HEAD@{2026-11-17T22:50:56+05:30}: commit: updated\n5e897b1 HEAD@{2026-11-17T22:49:58+05:30}: commit: updated\nec5896e HEAD@{2026-11-17T22:48:52+05:30}: commit: updated\n83f947d HEAD@{2026-11-17T22:47:43+05:30}: commit: updated\n5913d07 HEAD@{2026-11-17T22:45:33+05:30}: commit: updated\n221e63c HEAD@{2026-11-17T15:56:33+05:30}: commit: updated\n05e70e5 HEAD@{2026-11-17T12:34:15+05:30}: commit: updated\n7ecfb2a HEAD@{2026-11-17T00:09:38+05:30}: rebase (finish): returning to refs/heads/feature/securescan-ml\n7ecfb2a HEAD@{2026-11-17T00:09:38+05:30}: rebase (pick): updated\nf629c25 HEAD@{2026-11-17T00:09:38+05:30}: rebase (start): checkout origin/main\nf56f23e HEAD@{2026-11-17T00:04:16+05:30}: commit: updated\n86ad546 HEAD@{2026-11-16T23:25:15+05:30}: checkout: moving from main to feature/securescan-ml",
+    "relevant_file_hashes": {
+      "ml/securescan/scripts/phase_2_6_curate.py": {
+        "current_commit_sha256": "edb8bdabc5e0d0a461455d50a5f26f7cb28936b2849404a1774fcf08e67feedc",
+        "extraction_commit_sha256": "edb8bdabc5e0d0a461455d50a5f26f7cb28936b2849404a1774fcf08e67feedc",
+        "working_tree_sha256": "0b39d5c66777f074e300a6a269e1ee00b95b688a8cb099f2817233e28f9253c7"
+      },
+      "ml/securescan/securescan_ml/curation.py": {
+        "current_commit_sha256": "432b04d852b44dca71cbf80b5bcb61846ef2f25512ab2c8482a4d186fe8d36eb",
+        "extraction_commit_sha256": "432b04d852b44dca71cbf80b5bcb61846ef2f25512ab2c8482a4d186fe8d36eb",
+        "working_tree_sha256": "432b04d852b44dca71cbf80b5bcb61846ef2f25512ab2c8482a4d186fe8d36eb"
+      },
+      "ml/securescan/securescan_ml/phase26.py": {
+        "current_commit_sha256": "230739502b4d17c67c2729e4e0d677a9b55a9e854e4927bfd490b57e9d70aec6",
+        "extraction_commit_sha256": "4262bf35b75a3988f8db384907862bd903d54f295e88430f948335264780da92",
+        "working_tree_sha256": "88db44578fcf4fb18286c87ca0791f7a42d36d3369eb68c6171cd1f186142d3b"
+      }
+    },
+    "working_tree_status": "M ml/securescan/README.md\n M ml/securescan/scripts/phase_2_6_curate.py\n M ml/securescan/securescan_ml/phase26.py\n M ml/securescan/tests/test_phase26.py\n?? ml/securescan/reports/phase_2_6_count_reconciliation.md\n?? ml/securescan/reports/phase_2_6_duplicate_audit.md\n?? ml/securescan/reports/phase_2_6_evidence/\n?? ml/securescan/reports/phase_2_6_label_validation.md\n?? ml/securescan/reports/phase_2_6_leakage_analysis.md\n?? ml/securescan/reports/phase_2_6_licence_audit.md\n?? ml/securescan/reports/phase_2_6_pilot_cohort.md\n?? ml/securescan/reports/phase_2_6_repository_identity.md\n?? ml/securescan/reports/phase_2_6_training_readiness.md\n?? ml/securescan/reports/phase_2_7_count_methodology_review.md\n?? ml/securescan/reports/phase_2_7_duplicate_manual_review.md\n?? ml/securescan/reports/phase_2_7_evidence/\n?? ml/securescan/reports/phase_2_7_human_review_index.md\n?? ml/securescan/reports/phase_2_7_pilot_licence_review.md\n?? ml/securescan/reports/phase_2_7_pilot_manifest_audit.md\n?? ml/securescan/reports/phase_2_7_provenance_reconciliation.md\n?? ml/securescan/reports/phase_2_7_repository_relationship_review.md\n?? ml/securescan/reports/phase_2_7_training_readiness.md\n?? ml/securescan/scripts/_phase_2_6_entrypoint.py\n?? ml/securescan/scripts/phase_2_6_count_reconciliation.py\n?? ml/securescan/scripts/phase_2_6_duplicate_audit.py\n?? ml/securescan/scripts/phase_2_6_group_construction.py\n?? ml/securescan/scripts/phase_2_6_label_validation.py\n?? ml/securescan/scripts/phase_2_6_leakage_safe_split.py\n?? ml/securescan/scripts/phase_2_6_licence_inventory.py\n?? ml/securescan/scripts/phase_2_6_readiness_assessment.py\n?? ml/securescan/scripts/phase_2_6_repository_identity.py\n?? ml/securescan/scripts/phase_2_7_review.py\n?? ml/securescan/securescan_ml/phase27.py\n?? ml/securescan/tests/test_phase27.py"
+  },
+  "raw_database_unchanged": true,
+  "rows_added": 0,
+  "rows_removed": 0,
+  "training_performed": false
+}

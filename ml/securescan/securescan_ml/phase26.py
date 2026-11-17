@@ -801,11 +801,99 @@ def export_evidence(curation_db: Path, output_dir: Path) -> dict[str, Path]:
     return outputs
 
 
-def collect_summary(curation_db: Path) -> dict[str, Any]:
+def collect_summary(curation_db: Path, raw_database: Path | None = None) -> dict[str, Any]:
     connection = sqlite3.connect(curation_db)
     connection.row_factory = sqlite3.Row
+    # Summary validation operates on the small approved manifest. Keeping its
+    # transient GROUP BY state in memory avoids relying on a platform temp path.
+    connection.execute("PRAGMA temp_store=MEMORY")
     try:
         scalar = lambda sql: connection.execute(sql).fetchone()[0]
+        pilot_rows = list(
+            connection.execute(
+                "SELECT c.language,c.before_change,c.primary_repo,c.commit_hash,c.cves_json,s.component_id "
+                "FROM split_manifest s JOIN candidates c USING(method_change_id)"
+            )
+        )
+        pilot_cwes: Counter[str] = Counter()
+        candidates_without_cwe = 0
+        if raw_database is not None:
+            raw = open_readonly(raw_database)
+            try:
+                cve_to_cwes: dict[str, set[str]] = defaultdict(set)
+                for row in raw.execute("SELECT cve_id,cwe_id FROM cwe_classification"):
+                    cve_to_cwes[str(row["cve_id"])].add(str(row["cwe_id"]))
+            finally:
+                raw.close()
+            for row in pilot_rows:
+                cwes = {
+                    cwe
+                    for cve in json.loads(row["cves_json"])
+                    for cwe in cve_to_cwes.get(cve, set())
+                }
+                if not cwes:
+                    candidates_without_cwe += 1
+                pilot_cwes.update(cwes)
+        pilot_summary = {
+            "languages": dict(Counter(str(row["language"]) for row in pilot_rows)),
+            "labels": dict(Counter(str(row["before_change"]) for row in pilot_rows)),
+            "repositories": len({row["primary_repo"] for row in pilot_rows if row["primary_repo"]}),
+            "repository_groups": len({row["component_id"] for row in pilot_rows}),
+            "commits": len({row["commit_hash"] for row in pilot_rows}),
+            "cwe_candidate_assignments": dict(sorted(pilot_cwes.items())),
+            "candidates_without_cwe": candidates_without_cwe,
+        }
+        candidate_pair_counts = {
+            row["classification"]: row["groups"]
+            for row in connection.execute(
+                "WITH grouped AS (SELECT file_change_id,"
+                "COALESCE(NULLIF(signature,''),NULLIF(method_name,'')) pair_key,"
+                "SUM(before_change='True') before_count,SUM(before_change='False') after_count "
+                "FROM candidates WHERE COALESCE(NULLIF(signature,''),NULLIF(method_name,'')) IS NOT NULL "
+                "GROUP BY file_change_id,pair_key), classified AS (SELECT CASE "
+                "WHEN before_count=1 AND after_count=1 THEN 'one_to_one' "
+                "WHEN before_count=0 THEN 'unmatched_after' WHEN after_count=0 THEN 'unmatched_before' "
+                "WHEN before_count=1 THEN 'one_to_many' WHEN after_count=1 THEN 'many_to_one' "
+                "ELSE 'many_to_many' END classification FROM grouped) "
+                "SELECT classification,COUNT(*) groups FROM classified GROUP BY classification"
+            )
+        }
+        leakage_checks = {
+            "components_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM (SELECT component_id FROM split_manifest "
+                "GROUP BY component_id HAVING COUNT(DISTINCT split)>1)"
+            ),
+            "repositories_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM (SELECT c.primary_repo FROM split_manifest s "
+                "JOIN candidates c USING(method_change_id) WHERE c.primary_repo IS NOT NULL "
+                "GROUP BY c.primary_repo HAVING COUNT(DISTINCT s.split)>1)"
+            ),
+            "commits_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM (SELECT c.commit_hash FROM split_manifest s "
+                "JOIN candidates c USING(method_change_id) GROUP BY c.commit_hash "
+                "HAVING COUNT(DISTINCT s.split)>1)"
+            ),
+            "pair_keys_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM (SELECT c.file_change_id,COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,'')) pair_key "
+                "FROM split_manifest s JOIN candidates c USING(method_change_id) "
+                "WHERE COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,'')) IS NOT NULL "
+                "GROUP BY c.file_change_id,pair_key HAVING COUNT(DISTINCT s.split)>1)"
+            ),
+            "fingerprints_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM (SELECT kind,value FROM ("
+                "SELECT s.split,'raw' kind,c.code_sha256 value FROM split_manifest s JOIN candidates c USING(method_change_id) UNION ALL "
+                "SELECT s.split,'normalized',c.normalized_sha256 FROM split_manifest s JOIN candidates c USING(method_change_id) UNION ALL "
+                "SELECT s.split,'canonical',c.canonical_sha256 FROM split_manifest s JOIN candidates c USING(method_change_id)) "
+                "GROUP BY kind,value HAVING COUNT(DISTINCT split)>1)"
+            ),
+            "clone_edges_crossing_splits": scalar(
+                "SELECT COUNT(*) FROM clone_edges e JOIN split_manifest l ON l.method_change_id=e.left_method "
+                "JOIN split_manifest r ON r.method_change_id=e.right_method WHERE l.split<>r.split"
+            ),
+        }
+        duplicate_categories: Counter[str] = Counter()
+        for row in connection.execute("SELECT categories_json FROM duplicate_groups"):
+            duplicate_categories.update(json.loads(row["categories_json"]))
         return {
             "all_method_rows": scalar("SELECT COUNT(*) FROM all_methods"),
             "before_counts": {row["before_change"]: row["n"] for row in connection.execute("SELECT before_change,COUNT(*) n FROM all_methods GROUP BY before_change")},
@@ -830,12 +918,14 @@ def collect_summary(curation_db: Path) -> dict[str, Any]:
                     "GROUP BY change_type,before_change ORDER BY change_type,before_change"
                 )
             ],
+            "candidate_pair_classifications": candidate_pair_counts,
             "empty_or_tiny_candidates": scalar(
                 "SELECT COUNT(*) FROM candidates WHERE token_count<2 OR code_chars<5"
             ),
             "languages": {row["language"]: row["n"] for row in connection.execute("SELECT language,COUNT(*) n FROM candidates GROUP BY language")},
             "repositories": scalar("SELECT COUNT(*) FROM repositories"),
             "duplicates": dict(connection.execute("SELECT COUNT(*) groups,COALESCE(SUM(occurrences),0) rows,SUM(labels>1) conflicts,SUM(repositories>1) cross_repo FROM duplicate_groups").fetchone()),
+            "duplicate_categories": dict(sorted(duplicate_categories.items())),
             "clone_edges": {row["edge_type"]: row["n"] for row in connection.execute("SELECT edge_type,COUNT(*) n FROM clone_edges GROUP BY edge_type")},
             "repository_edges": {row["relationship"]: row["n"] for row in connection.execute("SELECT relationship,COUNT(*) n FROM repository_edges GROUP BY relationship")},
             "licenses": {row["category"]: row["n"] for row in connection.execute("SELECT category,COUNT(*) n FROM licenses GROUP BY category")},
@@ -844,6 +934,8 @@ def collect_summary(curation_db: Path) -> dict[str, Any]:
             "largest_component": scalar("SELECT COALESCE(MAX(n),0) FROM (SELECT COUNT(*) n FROM components GROUP BY component_id)"),
             "quarantined_rows": scalar("SELECT COUNT(*) FROM components WHERE approved=0"),
             "split_counts": {row["split"]: row["n"] for row in connection.execute("SELECT split,COUNT(*) n FROM split_manifest GROUP BY split")},
+            "leakage_checks": leakage_checks,
+            "pilot": pilot_summary,
         }
     finally:
         connection.close()

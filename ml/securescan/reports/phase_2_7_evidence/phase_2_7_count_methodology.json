@@ -1,0 +1,45 @@
+{
+  "ambiguous_repository_candidate_rows": 0,
+  "before_change_rows": {
+    "False": 151349,
+    "True": 126599
+  },
+  "c_cpp_pair_cardinality": {
+    "one_to_one": 6931,
+    "unmatched_after": 4830,
+    "unmatched_before": 1368
+  },
+  "conclusion": "official_semantic_count_not_reproduced",
+  "exact_duplicate_groups": 553,
+  "multiple_cve_candidate_rows": 1370,
+  "official_published_functions": 138974,
+  "phase26_logical_groups": 198985,
+  "phase26_pair_cardinality": [
+    {
+      "after_rows": 78963,
+      "before_rows": 78963,
+      "classification": "one_to_one",
+      "groups": 78963
+    },
+    {
+      "after_rows": 72386,
+      "before_rows": 0,
+      "classification": "unmatched_after",
+      "groups": 72386
+    },
+    {
+      "after_rows": 0,
+      "before_rows": 47636,
+      "classification": "unmatched_before",
+      "groups": 47636
+    }
+  ],
+  "physical_method_rows": 277948,
+  "queries": {
+    "before_change_rows": "SELECT CAST(before_change AS TEXT) AS before_change, COUNT(*) AS rows FROM method_change GROUP BY CAST(before_change AS TEXT) ORDER BY before_change;",
+    "c_cpp_pair_cardinality": "SELECT classification, COUNT(*) AS groups FROM (SELECT CASE WHEN SUM(c.before_change='True')=1 AND SUM(c.before_change='False')=1 THEN 'one_to_one' WHEN SUM(c.before_change='True')=0 THEN 'unmatched_after' WHEN SUM(c.before_change='False')=0 THEN 'unmatched_before' WHEN SUM(c.before_change='True')=1 THEN 'one_to_many' WHEN SUM(c.before_change='False')=1 THEN 'many_to_one' ELSE 'many_to_many' END classification FROM candidates c WHERE COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,'')) IS NOT NULL GROUP BY c.file_change_id,COALESCE(NULLIF(c.signature,''),NULLIF(c.method_name,''))) GROUP BY classification ORDER BY classification;",
+    "phase26_logical_groups": "SELECT COUNT(*) FROM (SELECT file_change_id, CASE WHEN LOWER(TRIM(COALESCE(signature,''))) NOT IN ('','nan','none') THEN TRIM(signature) WHEN LOWER(TRIM(COALESCE(name,''))) NOT IN ('','nan','none') THEN TRIM(name) ELSE '__unkeyed__:' || method_change_id END AS logical_key FROM method_change GROUP BY file_change_id, logical_key);",
+    "phase26_pair_cardinality": "WITH grouped AS (SELECT file_change_id, CASE WHEN LOWER(TRIM(COALESCE(signature,''))) NOT IN ('','nan','none') THEN TRIM(signature) WHEN LOWER(TRIM(COALESCE(name,''))) NOT IN ('','nan','none') THEN TRIM(name) ELSE '__unkeyed__:' || method_change_id END AS logical_key, SUM(CAST(before_change AS TEXT)='True') AS before_rows, SUM(CAST(before_change AS TEXT)='False') AS after_rows FROM method_change GROUP BY file_change_id, logical_key) SELECT CASE WHEN before_rows=1 AND after_rows=1 THEN 'one_to_one' WHEN before_rows=0 THEN 'unmatched_after' WHEN after_rows=0 THEN 'unmatched_before' WHEN before_rows=1 THEN 'one_to_many' WHEN after_rows=1 THEN 'many_to_one' ELSE 'many_to_many' END AS classification, COUNT(*) AS groups, SUM(before_rows) AS before_rows, SUM(after_rows) AS after_rows FROM grouped GROUP BY classification ORDER BY classification;",
+    "physical_method_rows": "SELECT COUNT(*) FROM method_change;"
+  }
+}

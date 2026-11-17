@@ -1,0 +1,221 @@
+{
+  "all_method_rows": 277948,
+  "approved_repositories": 266,
+  "before_counts": {
+    "False": 151349,
+    "True": 126599
+  },
+  "candidate_change_labels": [
+    {
+      "before_change": "False",
+      "change_type": "ModificationType.ADD",
+      "rows": 518
+    },
+    {
+      "before_change": "False",
+      "change_type": "ModificationType.MODIFY",
+      "rows": 11229
+    },
+    {
+      "before_change": "True",
+      "change_type": "ModificationType.MODIFY",
+      "rows": 8284
+    },
+    {
+      "before_change": "False",
+      "change_type": "ModificationType.RENAME",
+      "rows": 14
+    },
+    {
+      "before_change": "True",
+      "change_type": "ModificationType.RENAME",
+      "rows": 15
+    }
+  ],
+  "candidate_labels": {
+    "False": 11761,
+    "True": 8299
+  },
+  "candidate_pair_classifications": {
+    "one_to_one": 6931,
+    "unmatched_after": 4830,
+    "unmatched_before": 1368
+  },
+  "candidate_rows": 20060,
+  "clone_edges": {
+    "canonical_type2": 1470,
+    "normalized_exact": 180,
+    "verified_near_clone": 4460
+  },
+  "components": 717,
+  "duplicate_categories": {
+    "A_identical_code_identical_label": 172,
+    "B_conflicting_labels": 381,
+    "C_cross_repository": 73,
+    "D_same_repository_repeat": 480,
+    "E_same_logical_method_before_after": 8,
+    "F_ambiguous_or_unresolved": 381
+  },
+  "duplicates": {
+    "conflicts": 381,
+    "cross_repo": 73,
+    "groups": 553,
+    "rows": 1248
+  },
+  "empty_or_tiny_candidates": 0,
+  "languages": {
+    "C": 14651,
+    "C++": 5409
+  },
+  "largest_component": 4399,
+  "leakage_checks": {
+    "clone_edges_crossing_splits": 0,
+    "commits_crossing_splits": 0,
+    "components_crossing_splits": 0,
+    "fingerprints_crossing_splits": 0,
+    "pair_keys_crossing_splits": 0,
+    "repositories_crossing_splits": 0
+  },
+  "licenses": {
+    "ambiguous_or_custom": 48,
+    "copyleft": 302,
+    "explicit_permissive": 266,
+    "no_license_found": 147
+  },
+  "logical_functions": 198985,
+  "pair_classifications": {
+    "one_to_one": {
+      "after_rows": 78963,
+      "before_rows": 78963,
+      "groups": 78963
+    },
+    "unmatched_after": {
+      "after_rows": 72386,
+      "before_rows": 0,
+      "groups": 72386
+    },
+    "unmatched_before": {
+      "after_rows": 0,
+      "before_rows": 47636,
+      "groups": 47636
+    }
+  },
+  "pilot": {
+    "candidates_without_cwe": 0,
+    "commits": 411,
+    "cwe_candidate_assignments": {
+      "CWE-116": 13,
+      "CWE-1187": 7,
+      "CWE-119": 90,
+      "CWE-120": 69,
+      "CWE-121": 4,
+      "CWE-122": 4,
+      "CWE-125": 218,
+      "CWE-1284": 2,
+      "CWE-129": 2,
+      "CWE-1333": 7,
+      "CWE-16": 3,
+      "CWE-17": 4,
+      "CWE-189": 3,
+      "CWE-19": 2,
+      "CWE-190": 82,
+      "CWE-191": 2,
+      "CWE-193": 3,
+      "CWE-20": 67,
+      "CWE-200": 17,
+      "CWE-208": 4,
+      "CWE-22": 59,
+      "CWE-241": 6,
+      "CWE-252": 4,
+      "CWE-264": 47,
+      "CWE-269": 6,
+      "CWE-273": 1,
+      "CWE-276": 4,
+      "CWE-284": 1,
+      "CWE-287": 12,
+      "CWE-290": 20,
+      "CWE-295": 13,
+      "CWE-310": 49,
+      "CWE-325": 4,
+      "CWE-327": 15,
+      "CWE-330": 28,
+      "CWE-345": 2,
+      "CWE-347": 33,
+      "CWE-362": 11,
+      "CWE-369": 6,
+      "CWE-388": 3,
+      "CWE-399": 3,
+      "CWE-400": 7,
+      "CWE-401": 9,
+      "CWE-404": 7,
+      "CWE-407": 3,
+      "CWE-415": 106,
+      "CWE-416": 56,
+      "CWE-426": 4,
+      "CWE-434": 2,
+      "CWE-444": 14,
+      "CWE-476": 105,
+      "CWE-502": 11,
+      "CWE-522": 5,
+      "CWE-532": 4,
+      "CWE-552": 2,
+      "CWE-59": 14,
+      "CWE-601": 2,
+      "CWE-611": 20,
+      "CWE-613": 14,
+      "CWE-617": 84,
+      "CWE-667": 1,
+      "CWE-668": 12,
+      "CWE-670": 1,
+      "CWE-674": 25,
+      "CWE-680": 2,
+      "CWE-682": 14,
+      "CWE-697": 2,
+      "CWE-704": 2,
+      "CWE-732": 1,
+      "CWE-74": 11,
+      "CWE-754": 13,
+      "CWE-755": 12,
+      "CWE-763": 7,
+      "CWE-77": 24,
+      "CWE-770": 17,
+      "CWE-772": 1,
+      "CWE-776": 40,
+      "CWE-78": 84,
+      "CWE-787": 166,
+      "CWE-79": 2,
+      "CWE-824": 2,
+      "CWE-835": 16,
+      "CWE-843": 5,
+      "CWE-863": 4,
+      "CWE-908": 7,
+      "CWE-913": 25,
+      "CWE-918": 14,
+      "CWE-94": 2,
+      "CWE-943": 2,
+      "NVD-CWE-Other": 138,
+      "NVD-CWE-noinfo": 294
+    },
+    "labels": {
+      "False": 1349,
+      "True": 876
+    },
+    "languages": {
+      "C": 1381,
+      "C++": 844
+    },
+    "repositories": 219,
+    "repository_groups": 217
+  },
+  "quarantined_rows": 17835,
+  "repositories": 763,
+  "repository_edges": {
+    "canonical_url_alias": 4,
+    "cross_repo_exact_code": 33
+  },
+  "split_counts": {
+    "test": 334,
+    "train": 1557,
+    "validation": 334
+  }
+}

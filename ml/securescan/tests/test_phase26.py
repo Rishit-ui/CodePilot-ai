@@ -152,6 +152,76 @@ def test_duplicate_conflict_pair_and_leakage_pipeline(tmp_path: Path) -> None:
         "SELECT component_id,COUNT(DISTINCT split) FROM split_manifest GROUP BY component_id HAVING COUNT(DISTINCT split)>1"
     ).fetchall()
     assert leaked == []
-    assert connection.execute("SELECT COUNT(*) FROM split_manifest WHERE method_change_id IN ('m1','m2','m3')").fetchone()[0] == 0
+    assert connection.execute(
+        "SELECT COUNT(*) FROM split_manifest WHERE method_change_id IN ('m1','m2','m3')"
+    ).fetchone()[0] == 0
+    connection.close()
+
+
+def test_clone_edge_connects_repository_groups(tmp_path: Path) -> None:
+    raw = tmp_path / "raw.sqlite"
+    curated = tmp_path / "curated.sqlite"
+    build_raw_database(raw)
+    guard = DiskGuard(tmp_path, minimum_free_gib=0)
+    extract_metadata(raw, curated, guard, "fixture-head")
+    derive_pairs_and_duplicates(curated, guard)
+    derive_clone_edges(curated, guard)
+    derive_repository_edges(curated)
+    connection = sqlite3.connect(curated)
+    connection.execute(
+        "INSERT OR IGNORE INTO clone_edges VALUES(?,?,?,?,?)",
+        ("m3", "m4", "verified_near_clone", "test-fixture", "{}"),
+    )
+    for repo in connection.execute("SELECT repo_url FROM repositories").fetchall():
+        connection.execute(
+            "INSERT INTO licenses VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (repo[0], "fixture", "MIT", "explicit_permissive", "LICENSE", "fixture", "hash", "2026-11-17", "approved_pilot", "fixture"),
+        )
+    connection.commit()
+    connection.close()
+    build_components_and_split(curated, guard, seed=42)
+    connection = sqlite3.connect(curated)
+    assert connection.execute(
+        "SELECT COUNT(DISTINCT component_id) FROM components WHERE method_change_id IN ('m3','m4')"
+    ).fetchone()[0] == 1
+    connection.close()
+
+
+def test_unlicensed_repository_is_quarantined(tmp_path: Path) -> None:
+    raw = tmp_path / "raw.sqlite"
+    curated = tmp_path / "curated.sqlite"
+    build_raw_database(raw)
+    guard = DiskGuard(tmp_path, minimum_free_gib=0)
+    extract_metadata(raw, curated, guard, "fixture-head")
+    derive_pairs_and_duplicates(curated, guard)
+    derive_clone_edges(curated, guard)
+    derive_repository_edges(curated)
+    connection = sqlite3.connect(curated)
+    repo_for_m4 = connection.execute(
+        "SELECT primary_repo FROM candidates WHERE method_change_id='m4'"
+    ).fetchone()[0]
+    for repo in connection.execute("SELECT repo_url FROM repositories").fetchall():
+        approved = repo[0] != repo_for_m4
+        connection.execute(
+            "INSERT INTO licenses VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                repo[0], "fixture", "MIT" if approved else "NOT_FOUND",
+                "explicit_permissive" if approved else "no_license_found",
+                "LICENSE" if approved else None, "fixture", "hash", "2026-11-17",
+                "approved_pilot" if approved else "quarantined",
+                "fixture" if approved else "no licence found",
+            ),
+        )
+    connection.commit()
+    connection.close()
+    build_components_and_split(curated, guard, seed=42)
+    connection = sqlite3.connect(curated)
+    assert connection.execute(
+        "SELECT COUNT(*) FROM split_manifest WHERE method_change_id IN ('m4','m5')"
+    ).fetchone()[0] == 0
+    reasons = connection.execute(
+        "SELECT DISTINCT quarantine_reason FROM components WHERE method_change_id IN ('m4','m5')"
+    ).fetchall()
+    assert reasons == [("repository_not_in_permissive_pilot_allowlist",)]
     connection.close()
 

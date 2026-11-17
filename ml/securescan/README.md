@@ -123,3 +123,48 @@ PrimeVul is acquired only from the v0.1 Google Drive folder linked by the [offic
 The external evaluator verifies every local release file by SHA-256, uses the original Phase 1 Logistic Regression and vectorizer, fixes the decision threshold at 0.5, excludes detected exact/high-confidence near overlaps, and never tunes on PrimeVul. See `reports/near_duplicate_investigation.md`, `reports/leakage_controlled_evaluation.md`, `reports/primevul_external_evaluation.md`, and `reports/phase_1_5_summary.md`.
 
 The PrimeVul result is poor: after detected-overlap exclusions, vulnerable-class F1 is 0.0276 and PR-AUC is 0.0170. The model is not suitable for API integration or security enforcement. Because the Phase 1 corpus lacks project provenance, the PrimeVul result is described as an external-corpus evaluation—not a contamination-proof independent benchmark.
+
+## Phase 2.6 CVEfixes curation (no training)
+
+From the repository root, Phase 2.6 reads the restored CVEfixes v1.0.8 database in SQLite read-only mode
+and writes only hashes, fingerprints, provenance metadata, licence evidence, and
+manifests to a compact derived store on `D:`. It does not export source code or
+train a model. The mandatory free-space guard is 85 GiB.
+
+From the repository root, the reproducible stage sequence is:
+
+```powershell
+$env:PYTHONPATH=(Resolve-Path 'ml\securescan').Path
+$python='ml\securescan\.venv\Scripts\python.exe'
+$raw='D:\CodePilotData\CVEfixes\database\CVEfixes_v1.0.8.converted.db'
+$work='D:\CodePilotData\CVEfixes\phase2_6'
+& $python ml\securescan\scripts\phase_2_6_count_reconciliation.py --raw-database $raw --work-dir $work --min-free-gib 85
+& $python ml\securescan\scripts\phase_2_6_duplicate_audit.py --raw-database $raw --work-dir $work --min-free-gib 85
+& $python ml\securescan\scripts\phase_2_6_licence_inventory.py --raw-database $raw --work-dir $work --min-free-gib 85
+& $python ml\securescan\scripts\phase_2_6_leakage_safe_split.py --raw-database $raw --work-dir $work --min-free-gib 85 --seed 42
+& $python ml\securescan\scripts\phase_2_6_curate.py export --raw-database $raw --work-dir $work --min-free-gib 85
+& $python ml\securescan\scripts\phase_2_6_readiness_assessment.py --raw-database $raw --work-dir $work --min-free-gib 85 --repo-reports (Resolve-Path 'ml\securescan\reports').Path
+```
+
+The extraction script intentionally refuses to overwrite an existing derived
+store. Later deterministic stages are restartable. Separate entry points are
+also provided for repository identity, label validation, group construction,
+and the final assessment. Evidence files under `reports/phase_2_6_evidence/`
+contain identifiers and hashes only—no source-code or licence-text excerpts.
+
+## Phase 2.7 review and dataset freeze gate
+
+Phase 2.7 does not train or evaluate a model. It produces revision-provenance,
+count-methodology, licence, duplicate-review, relationship, manifest, and human
+decision ledgers from the immutable raw database and compact Phase 2.6 store:
+
+```powershell
+& ml\securescan\.venv\Scripts\python.exe ml\securescan\scripts\phase_2_7_review.py `
+  --raw-database D:\CodePilotData\CVEfixes\database\CVEfixes_v1.0.8.converted.db `
+  --curation-database D:\CodePilotData\CVEfixes\phase2_6\phase_2_6_curation.sqlite `
+  --reports-dir ml\securescan\reports --min-free-gib 85
+```
+
+The 2,225 rows remain a `proposed_candidate_cohort`. Training readiness remains
+blocked until the human provenance, duplicate, repository-identity, methodology,
+and legal/licensing gates recorded in the Phase 2.7 reports are closed.
