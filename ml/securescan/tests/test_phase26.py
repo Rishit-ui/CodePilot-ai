@@ -125,8 +125,8 @@ def test_duplicate_conflict_pair_and_leakage_pipeline(tmp_path: Path) -> None:
     assert (raw.stat().st_size, raw.stat().st_mtime_ns) == original
 
     audit = derive_pairs_and_duplicates(curated, guard)
-    assert audit["duplicate_summary"]["duplicate_groups"] == 1
-    assert audit["duplicate_summary"]["conflicting_label_groups"] == 1
+    assert audit["duplicate_summary"]["groups"] == 1
+    assert audit["duplicate_summary"]["conflicting_groups"] == 1
     assert audit["pair_group_counts"]["one_to_one"] == 2
     derive_clone_edges(curated, guard)
     derive_repository_edges(curated)
