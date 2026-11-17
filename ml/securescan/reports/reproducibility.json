@@ -1,0 +1,11 @@
+{
+  "artifact_sha256": {
+    "tfidf_linear_svm.joblib": "b888a50a7a56c2a8e945903e2d257c250c0bdf5cbabf0f33c4053347d6e88a68",
+    "tfidf_logistic_regression.joblib": "af92b4113d0bef38ba73f9f1336a041bc1711c311a71525d968f4e6dc89172f9",
+    "tfidf_vectorizer.joblib": "9cfc73c2d0b01cde43b68e2a86b40ce2df1843607a1a891e5d30f013319958f1"
+  },
+  "full_training_runs_compared": 2,
+  "metrics_identical": true,
+  "artifact_hashes_identical": true,
+  "random_seed": 42
+}

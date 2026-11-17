@@ -1,0 +1,150 @@
+{
+  "artifact_sha256": {
+    "tfidf_linear_svm.joblib": "b888a50a7a56c2a8e945903e2d257c250c0bdf5cbabf0f33c4053347d6e88a68",
+    "tfidf_logistic_regression.joblib": "af92b4113d0bef38ba73f9f1336a041bc1711c311a71525d968f4e6dc89172f9",
+    "tfidf_vectorizer.joblib": "9cfc73c2d0b01cde43b68e2a86b40ce2df1843607a1a891e5d30f013319958f1"
+  },
+  "artifact_sizes_bytes": {
+    "tfidf_linear_svm.joblib": 1200747,
+    "tfidf_logistic_regression.joblib": 1200891,
+    "tfidf_vectorizer.joblib": 4786133
+  },
+  "candidate_model_files": {
+    "tfidf_linear_svm": "tfidf_linear_svm.joblib",
+    "tfidf_logistic_regression": "tfidf_logistic_regression.joblib"
+  },
+  "dataset": {
+    "dataset_id": "mcanoglu/defect-detection",
+    "fingerprints": {
+      "test": "9c90aa316d30fec5",
+      "train": "c5fa4e65413f4a57",
+      "validation": "c2edd49a2e1c75d6"
+    },
+    "license": "mit",
+    "license_files": [],
+    "revision": "6a433bbc30bea2d1053484c4bdfb75673044561a",
+    "url": "https://huggingface.co/datasets/mcanoglu/defect-detection"
+  },
+  "format_version": 1,
+  "limitations": [
+    "Statistical snippet classification cannot prove security or exploitability.",
+    "Dataset near duplicates remain after exact duplicate removal and may inflate metrics.",
+    "Model has not yet been validated on an independently sourced external corpus.",
+    "Predictions do not replace static analysis, review, testing, or threat modeling."
+  ],
+  "model_label_mapping": {
+    "0": "safe",
+    "1": "vulnerable"
+  },
+  "raw_label_mapping": {
+    "0": "vulnerable",
+    "1": "safe"
+  },
+  "runtime": {
+    "joblib": "1.6.0",
+    "numpy": "2.5.5",
+    "pandas": "3.1.1",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+    "scikit_learn": "1.9.1"
+  },
+  "selected_model": "tfidf_logistic_regression",
+  "selected_model_file": "tfidf_logistic_regression.joblib",
+  "test_metrics": {
+    "accuracy": 0.6020362992474546,
+    "classification_report": {
+      "accuracy": 0.6020362992474546,
+      "macro avg": {
+        "f1-score": 0.5974161649172756,
+        "precision": 0.5972360884249504,
+        "recall": 0.5980797145902812,
+        "support": 2259.0
+      },
+      "safe": {
+        "f1-score": 0.6405437824870052,
+        "precision": 0.6522801302931596,
+        "recall": 0.629222309505106,
+        "support": 1273.0
+      },
+      "vulnerable": {
+        "f1-score": 0.5542885473475458,
+        "precision": 0.542192046556741,
+        "recall": 0.5669371196754563,
+        "support": 986.0
+      },
+      "weighted avg": {
+        "f1-score": 0.6028954151352979,
+        "precision": 0.6042292889633195,
+        "recall": 0.6020362992474546,
+        "support": 2259.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        801,
+        472
+      ],
+      [
+        427,
+        559
+      ]
+    ],
+    "f1_vulnerable": 0.5542885473475458,
+    "precision_vulnerable": 0.542192046556741,
+    "recall_vulnerable": 0.5669371196754563,
+    "roc_auc": 0.6790220191877168
+  },
+  "training_configuration": {
+    "evaluation_split": "test",
+    "feature_count": 150000,
+    "fit_split": "train",
+    "random_seed": 42,
+    "selection_split": "validation",
+    "vectorizer": "FeatureUnion(word TF-IDF 1-2 grams, char_wb TF-IDF 3-5 grams)"
+  },
+  "validation_metrics": {
+    "accuracy": 0.6057408189109329,
+    "classification_report": {
+      "accuracy": 0.6057408189109329,
+      "macro avg": {
+        "f1-score": 0.604494222153583,
+        "precision": 0.6044614025532937,
+        "recall": 0.6045409028160249,
+        "support": 2369.0
+      },
+      "safe": {
+        "f1-score": 0.6266986410871302,
+        "precision": 0.6287089013632718,
+        "recall": 0.6247011952191235,
+        "support": 1255.0
+      },
+      "vulnerable": {
+        "f1-score": 0.5822898032200358,
+        "precision": 0.5802139037433155,
+        "recall": 0.5843806104129264,
+        "support": 1114.0
+      },
+      "weighted avg": {
+        "f1-score": 0.6058158021745329,
+        "precision": 0.6059045842047107,
+        "recall": 0.6057408189109329,
+        "support": 2369.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        784,
+        471
+      ],
+      [
+        463,
+        651
+      ]
+    ],
+    "f1_vulnerable": 0.5822898032200358,
+    "precision_vulnerable": 0.5802139037433155,
+    "recall_vulnerable": 0.5843806104129264,
+    "roc_auc": 0.6967279892995344
+  },
+  "vectorizer_file": "tfidf_vectorizer.joblib"
+}
