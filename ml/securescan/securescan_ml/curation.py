@@ -177,8 +177,9 @@ def fingerprint_code(code: str) -> dict[str, object]:
 
 class UnionFind:
     def __init__(self, items: Iterable[str] = ()) -> None:
-        self.parent = {item: item for item in items}
-        self.rank = {item: 0 for item in items}
+        materialized = tuple(items)
+        self.parent = {item: item for item in materialized}
+        self.rank = {item: 0 for item in materialized}
 
     def add(self, item: str) -> None:
         if item not in self.parent:
