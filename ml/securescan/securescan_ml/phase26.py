@@ -77,12 +77,18 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
         for row in raw.execute("SELECT repo_url, hash, cve_id FROM fixes"):
             fixes[(str(row["repo_url"]), str(row["hash"]))].add(str(row["cve_id"]))
 
-        c_files: dict[str, tuple[str, str]] = {}
+        c_files: dict[str, tuple[str, str, str, str, str]] = {}
         for row in raw.execute(
-            "SELECT file_change_id, hash, programming_language FROM file_change "
+            "SELECT file_change_id, hash, programming_language, change_type, old_path, new_path FROM file_change "
             "WHERE programming_language IN ('C','C++')"
         ):
-            c_files[str(row["file_change_id"])] = (str(row["hash"]), str(row["programming_language"]))
+            c_files[str(row["file_change_id"])] = (
+                str(row["hash"]),
+                str(row["programming_language"]),
+                str(row["change_type"] or ""),
+                str(row["old_path"] or ""),
+                str(row["new_path"] or ""),
+            )
 
         method_rows: list[tuple[Any, ...]] = []
         candidate_rows: list[tuple[Any, ...]] = []
@@ -113,7 +119,7 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
 
             if file_id not in c_files:
                 continue
-            commit_hash, language = c_files[file_id]
+            commit_hash, language, change_type, old_path, new_path = c_files[file_id]
             repos = sorted(set(commits_by_hash.get(commit_hash, ())))
             primary_repo = repos[0] if len(repos) == 1 else None
             cves: set[str] = set()
@@ -132,6 +138,9 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
                     before,
                     language,
                     commit_hash,
+                    change_type,
+                    old_path,
+                    new_path,
                     primary_repo,
                     int(len(repos) != 1),
                     json_list(cves),
@@ -148,7 +157,7 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
             if len(candidate_rows) >= 500:
                 _insert_batches(
                     derived,
-                    "INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     candidate_rows,
                 )
                 _insert_batches(
@@ -164,7 +173,7 @@ def extract_metadata(raw_db: Path, curation_db: Path, guard: DiskGuard, source_h
         _insert_batches(derived, "INSERT INTO all_methods VALUES(?,?,?,?,?,?,?)", method_rows)
         _insert_batches(
             derived,
-            "INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO candidates VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             candidate_rows,
         )
         _insert_batches(
@@ -794,9 +803,29 @@ def collect_summary(curation_db: Path) -> dict[str, Any]:
             "all_method_rows": scalar("SELECT COUNT(*) FROM all_methods"),
             "before_counts": {row["before_change"]: row["n"] for row in connection.execute("SELECT before_change,COUNT(*) n FROM all_methods GROUP BY before_change")},
             "logical_functions": scalar("SELECT COUNT(*) FROM pair_groups"),
-            "pair_classifications": {row["classification"]: row["n"] for row in connection.execute("SELECT classification,COUNT(*) n FROM pair_groups GROUP BY classification")},
+            "pair_classifications": {
+                row["classification"]: {
+                    "groups": row["groups"],
+                    "before_rows": row["before_rows"],
+                    "after_rows": row["after_rows"],
+                }
+                for row in connection.execute(
+                    "SELECT classification,COUNT(*) groups,SUM(before_count) before_rows,"
+                    "SUM(after_count) after_rows FROM pair_groups GROUP BY classification"
+                )
+            },
             "candidate_rows": scalar("SELECT COUNT(*) FROM candidates"),
             "candidate_labels": {row["before_change"]: row["n"] for row in connection.execute("SELECT before_change,COUNT(*) n FROM candidates GROUP BY before_change")},
+            "candidate_change_labels": [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT change_type,before_change,COUNT(*) rows FROM candidates "
+                    "GROUP BY change_type,before_change ORDER BY change_type,before_change"
+                )
+            ],
+            "empty_or_tiny_candidates": scalar(
+                "SELECT COUNT(*) FROM candidates WHERE token_count<2 OR code_chars<5"
+            ),
             "languages": {row["language"]: row["n"] for row in connection.execute("SELECT language,COUNT(*) n FROM candidates GROUP BY language")},
             "repositories": scalar("SELECT COUNT(*) FROM repositories"),
             "duplicates": dict(connection.execute("SELECT COUNT(*) groups,COALESCE(SUM(occurrences),0) rows,SUM(labels>1) conflicts,SUM(repositories>1) cross_repo FROM duplicate_groups").fetchone()),

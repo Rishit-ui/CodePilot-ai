@@ -299,6 +299,7 @@ def create_schema(connection: sqlite3.Connection) -> None:
           method_change_id TEXT PRIMARY KEY, file_change_id TEXT NOT NULL,
           method_name TEXT, signature TEXT, before_change TEXT NOT NULL,
           language TEXT NOT NULL, commit_hash TEXT NOT NULL,
+          change_type TEXT, old_path TEXT, new_path TEXT,
           primary_repo TEXT, repo_ambiguous INTEGER NOT NULL,
           cves_json TEXT NOT NULL, code_sha256 TEXT NOT NULL,
           normalized_sha256 TEXT NOT NULL, canonical_sha256 TEXT NOT NULL,
