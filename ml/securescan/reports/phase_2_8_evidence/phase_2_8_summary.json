@@ -1,0 +1,115 @@
+{
+  "alternatives": [
+    {
+      "commits": 411,
+      "components": 217,
+      "description": "proposed_candidate_cohort",
+      "exact_revision_licence_coverage": 0.58382,
+      "exact_revision_licence_rows": 1299,
+      "fresh_group_level_split_needed": false,
+      "known_unresolved_risks": [
+        "no legal clearance",
+        "926 rows lack exact-revision licence evidence",
+        "repository identity coverage incomplete"
+      ],
+      "labels": {
+        "fixed_post_fix": 1349,
+        "vulnerable_pre_fix": 876
+      },
+      "languages": {
+        "C": 1381,
+        "C++": 844
+      },
+      "legally_cleared": false,
+      "manifest_sha256": "7caac791241dc6e01525e31cd8c8b314831adf07fb7114951007bb65e9a0ed86",
+      "name": "A_phase27_proposed_cohort",
+      "partial_original_components": 0,
+      "quarantined_conflict_rows_included": 0,
+      "ready_for_training": false,
+      "repositories": 219,
+      "rows": 2225
+    },
+    {
+      "commits": 219,
+      "components": 217,
+      "description": "review_candidate_only",
+      "exact_revision_licence_coverage": 1.0,
+      "exact_revision_licence_rows": 1299,
+      "fresh_group_level_split_needed": true,
+      "known_unresolved_risks": [
+        "no legal clearance",
+        "NOTICE/attribution evidence not collected separately",
+        "partial original components require regrouping"
+      ],
+      "labels": {
+        "fixed_post_fix": 804,
+        "vulnerable_pre_fix": 495
+      },
+      "languages": {
+        "C": 736,
+        "C++": 563
+      },
+      "legally_cleared": false,
+      "manifest_sha256": "bf4952af117bdca29ccdd9bda1a05bc57b949921c6876f12229479efe210e5b5",
+      "name": "B_exact_revision_review_subset",
+      "partial_original_components": 81,
+      "quarantined_conflict_rows_included": 0,
+      "ready_for_training": false,
+      "repositories": 219,
+      "rows": 1299
+    },
+    {
+      "commits": 135,
+      "components": 135,
+      "description": "review_candidate_only",
+      "exact_revision_licence_coverage": 1.0,
+      "exact_revision_licence_rows": 897,
+      "fresh_group_level_split_needed": true,
+      "known_unresolved_risks": [
+        "no legal clearance",
+        "provider-authoritative identity remains incomplete",
+        "smaller cohort may be biased or underpowered"
+      ],
+      "labels": {
+        "fixed_post_fix": 549,
+        "vulnerable_pre_fix": 348
+      },
+      "languages": {
+        "C": 488,
+        "C++": 409
+      },
+      "legally_cleared": false,
+      "manifest_sha256": "cf142ba6a8d7b146d3c40e38c489d3a633e8ef0ef3eef296b7d656da011cfddf",
+      "name": "C_whole_component_identity_restricted_subset",
+      "partial_original_components": 0,
+      "quarantined_conflict_rows_included": 0,
+      "ready_for_training": false,
+      "repositories": 135,
+      "rows": 897
+    }
+  ],
+  "duplicate_quarantine_human_accepted": false,
+  "exact_revision_rows": 1299,
+  "generated_utc": "2026-11-17T18:30:49.226186+00:00",
+  "new_authoritative_repository_relationships": 0,
+  "original_manifest_sha256": "7caac791241dc6e01525e31cd8c8b314831adf07fb7114951007bb65e9a0ed86",
+  "original_manifest_unchanged": true,
+  "other_revision_rows": 926,
+  "overall_status": "BLOCKED",
+  "raw_database_unchanged": true,
+  "statuses": {
+    "analysis_provenance": "BLOCKED_UNRESOLVED_DIRTY_WORKTREE",
+    "duplicate_exclusion_approval": "BLOCKED_HUMAN_DECISION_REQUIRED",
+    "extraction_provenance": "BLOCKED_RECONSTRUCTED_NOT_VERIFIED",
+    "label_semantics": "PASS_WITH_UNSUPPORTED_CASES_QUARANTINED",
+    "leakage_prevention": "PASS_PROVISIONAL_COLLECTED_EVIDENCE_ONLY",
+    "legal_review": "BLOCKED_NO_LEGAL_CLEARANCE",
+    "manifest_reproducibility": "PASS_PHASE27_FROZEN",
+    "official_count_methodology": "REQUIRES_REVIEW_REQUEST_PREPARED",
+    "overall": "BLOCKED",
+    "pilot_row_provenance": "PASS_TECHNICAL_TRACEABILITY",
+    "repository_identity": "REQUIRES_REVIEW_PROVIDER_HISTORY_INCOMPLETE",
+    "revision_specific_licence_evidence": "PARTIAL_1299_OF_2225"
+  },
+  "training_performed": false
+}

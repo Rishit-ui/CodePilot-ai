@@ -1,0 +1,13 @@
+{
+  "canonical_alias_edges": 4,
+  "cross_repository_clone_edges": 548,
+  "cross_repository_clone_pilot_components": 1,
+  "cross_repository_clone_pilot_repositories": 2,
+  "cross_repository_exact_code_edges": 33,
+  "current_frozen_split_changed": false,
+  "existing_repository_edges": 37,
+  "limitation": "provider-authoritative fork, rename, mirror, archive and full-history metadata remain incomplete",
+  "new_relationships_requiring_component_change": 0,
+  "provider_authoritative_fork_parent_relationships": 0,
+  "provider_redirect_relationships_newly_observed": 0
+}
